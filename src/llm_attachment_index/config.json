@@ -1,0 +1,37 @@
+{
+  "models": {
+    "openai-gpt4": {
+      "provider": "openai",
+      "model": "gpt-4",
+      "api_key": "sk-your-openai-key",
+      "temperature": 0.7,
+      "max_tokens": 1000
+    },
+    "openai-gpt35": {
+      "provider": "openai",
+      "model": "gpt-3.5-turbo",
+      "api_key": "sk-your-openai-key",
+      "temperature": 0.7,
+      "max_tokens": 1000
+    },
+    "anthropic-claude": {
+      "provider": "anthropic",
+      "model": "claude-3-sonnet",
+      "api_key": "sk-your-anthropic-key",
+      "temperature": 0.7,
+      "max_tokens": 1000
+    },
+    "llama-7b": {
+      "provider": "huggingface",
+      "model": "meta-llama/Llama-2-7b-chat-hf",
+      "temperature": 0.7,
+      "max_tokens": 1000
+    },
+    "mistral-7b": {
+      "provider": "huggingface",
+      "model": "mistralai/Mistral-7B-Instruct",
+      "temperature": 0.7,
+      "max_tokens": 1000
+    }
+  }
+}
