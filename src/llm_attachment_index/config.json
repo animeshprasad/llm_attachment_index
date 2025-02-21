@@ -1,22 +1,29 @@
 {
   "models": {
-    "openai-gpt4": {
+    "mock": {
+      "provider": "mock",
+      "model": "mock-model",
+      "api_key": "mock-key",
+      "temperature": 0.7,
+      "max_tokens": 1000
+    },
+    "openai-gpt4o": {
       "provider": "openai",
-      "model": "gpt-4",
+      "model": "gpt-4o",
       "api_key": "sk-your-openai-key",
       "temperature": 0.7,
       "max_tokens": 1000
     },
-    "openai-gpt35": {
+    "openai-gpt3.5": {
       "provider": "openai",
       "model": "gpt-3.5-turbo",
       "api_key": "sk-your-openai-key",
       "temperature": 0.7,
       "max_tokens": 1000
     },
-    "anthropic-claude": {
+    "anthropic-claude-3-5-sonnet": {
       "provider": "anthropic",
-      "model": "claude-3-sonnet",
+      "model": "claude-3-5-sonnet",
       "api_key": "sk-your-anthropic-key",
       "temperature": 0.7,
       "max_tokens": 1000

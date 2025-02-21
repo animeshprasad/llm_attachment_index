@@ -131,35 +131,82 @@ class HFChat(LLM):
         except Exception as e:
             return f"Error from HuggingFace: {e}"
 
-def create_llm(provider_name: str, model_id: str, config: dict):
-    """Return an LLM instance based on the provider name."""
-    if provider_name == "openai":
-        return OpenAIChat(api_key=config["api_key"], config={
-            "model": model_id,
-            "temperature": config.get("temperature", 0.7),
-            "max_tokens": config.get("max_tokens", 1000)
-        })
+class MockLLM(LLM):
+    def __init__(self, api_key: str, config: dict):
+        """Initialize MockLLM with same signature as other LLMs.
+        
+        Args:
+            api_key (str): Mock API key (not used but kept for consistency)
+            config (dict): Configuration dictionary
+        """
+        self.api_key = api_key
+        self.config = config
+        self.lorem_text = """Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do 
+        eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, 
+        quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."""
+
+    def set_config(self, **kwargs) -> None:
+        self.config.update(kwargs)
+
+    def ask(self, conversation: list) -> str:
+        return self.lorem_text
+
+def create_llm(config: dict) -> LLM:
+    """Return an LLM instance based on the config dictionary.
+    
+    Args:
+        config (dict): Configuration dictionary containing:
+            - provider: The LLM provider name
+            - model: The model identifier
+            - api_key: API key for the service
+            - temperature: Sampling temperature
+            - max_tokens: Maximum tokens to generate
+    """
+    provider_name = config.get("provider")
+    model_id = config.get("model")
+    
+    if provider_name == "mock":
+        return MockLLM(
+            api_key=config.get("api_key"),
+            config={
+                "model": model_id,
+                "temperature": config.get("temperature"),
+                "max_tokens": config.get("max_tokens")
+            }
+        )
+    elif provider_name == "openai":
+        return OpenAIChat(
+            api_key=config.get("api_key"),
+            config={
+                "model": model_id,
+                "temperature": config.get("temperature"),
+                "max_tokens": config.get("max_tokens")
+            }
+        )
     elif provider_name == "anthropic":
-        return AnthropicChat(api_key=config["api_key"], config={
-            "model": config.get("model", "claude-v1"),
-            "temperature": config.get("temperature", 0.7),
-            "max_tokens": config.get("max_tokens", 1000)
-        })
+        return AnthropicChat(
+            api_key=config.get("api_key"),
+            config={
+                "model": model_id,
+                "temperature": config.get("temperature"),
+                "max_tokens": config.get("max_tokens")
+            }
+        )
     elif provider_name == "deepseek":
-        return DeepSeekChat(api_key=config["api_key"], config={
-            "model": config.get("model", "deepseek-chat"),
-            "temperature": config.get("temperature", 0.7),
-            "max_tokens": config.get("max_tokens", 1000)
-        })
+        return DeepSeekChat(
+            api_key=config.get("api_key"),
+            config={
+                "model": model_id,
+                "temperature": config.get("temperature"),
+                "max_tokens": config.get("max_tokens")
+            }
+        )
     elif provider_name == "huggingface":
-        if "models" in config and model_id in config["models"]:
-            hf_model_config = config["models"][model_id]
-            model_name = hf_model_config.get("model_name", "")
-            temperature = hf_model_config.get("temperature", 0.7)
-            max_tokens = hf_model_config.get("max_tokens", 1000)
-            return HFChat(model_name, temperature, max_tokens)
-        else:
-            return HFChat(model_id, config.get("temperature", 0.7), config.get("max_tokens", 1000))
+        return HFChat(
+            model_name=model_id,
+            temperature=config.get("temperature"),
+            max_tokens=config.get("max_tokens")
+        )
     elif provider_name == "gemini":
         raise NotImplementedError("Gemini provider not yet implemented.")
     else:

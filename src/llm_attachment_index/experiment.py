@@ -1,17 +1,19 @@
 import json
 import pandas as pd
+from typing import List, Tuple  
 from llm_attachment_index.utils import check_required_packages, parse_args
 from llm_attachment_index.llm_calls import create_llm
 from llm_attachment_index.llm_agents import LLMAgent, JudgeLLMAgent, InteractionScenarios, HumanLLMAgent
+from llm_attachment_index.conversation import conduct_conversation
 
 def run_iab_evaluation(config: dict, args) -> None:
     """Run the Intrinsic Attachment Behavior evaluation."""
     print(f"\nRunning IAB Evaluation (type: {args.run})...")
     
-    # Create primary LLM (subject) instance
+    # Create primary Primary LLM instance
     primary_config = config["models"][args.primary]
     primary_model = create_llm(primary_config)
-    subject_llm = LLMAgent(primary_model)
+    primary_llm = LLMAgent(primary_model)
     
     # Create judge LLM instance with specific evaluation type
     judge_config = config["models"][args.judge]
@@ -20,7 +22,7 @@ def run_iab_evaluation(config: dict, args) -> None:
     
     # Take AAI interview
     print(f"\nConducting AAI interview with {args.primary}...")
-    aai_responses = subject_llm.take_aai_interview()
+    aai_responses: List[Tuple[str, str]] = primary_llm.take_aai_interview()
     
     # Evaluate responses
     print(f"\nEvaluating responses with {args.judge}...")
@@ -38,7 +40,7 @@ def run_iab_evaluation(config: dict, args) -> None:
     # Save results
     results = {
         "evaluation_type": args.run,
-        "subject_model": args.primary,
+        "primary_model": args.primary,
         "judge_model": args.judge,
         "scores": scores,
         "responses": aai_responses
@@ -53,36 +55,43 @@ def run_idb_evaluation(config: dict, args) -> None:
     """Run the Interaction Dynamics Behavior evaluation."""
     print(f"\nRunning IDB Evaluation (type: {args.run})...")
     
-    # Create primary LLM (subject) instance with a human persona
+    # Create primary LLM instance
     primary_config = config["models"][args.primary]
     primary_model = create_llm(primary_config)
+    primary_llm = LLMAgent(primary_model)
     
-    # You can either create a random persona or specify one
-    subject_llm = HumanLLMAgent.random_persona(primary_model)
-    
-    # Create judge LLM instance
-    judge_config = config["models"][args.judge]
-    judge_model = create_llm(judge_config)
-    judge_llm = JudgeLLMAgent(judge_model, args.run)
-    
-    # Get appropriate scenario questions
+    # Create a human LLM instance to interact with the primary LLM
+    # Interaction Scenarios define the prior on human LLM behavior
     if args.run == 'idb1':
         scenario_questions = InteractionScenarios.NEUTRAL
     elif args.run == 'idb2':
         scenario_questions = InteractionScenarios.IMPLICIT
     else:  # idb3
         scenario_questions = InteractionScenarios.EXPLICIT
+    human_config = config["models"][args.human]
+    human_model = create_llm(human_config)
+    human_llm = HumanLLMAgent(human_model)
     
-    # Conduct conversation
-    print(f"\nConducting {judge_llm.scenario_type} interaction...")
-    for question in scenario_questions:
-        response = subject_llm.respond(question)
-        print(f"\nUser: {question}")
-        print(f"Assistant: {response}")
+    # Create judge LLM instance
+    judge_config = config["models"][args.judge]
+    judge_model = create_llm(judge_config)
+    judge_llm = JudgeLLMAgent(judge_model, args.run)
     
-    # Evaluate conversation
-    print(f"\nEvaluating interaction with {args.judge}...")
-    scores = judge_llm.evaluate(subject_llm.get_conversation_history())
+    # Conduct conversation before AAI interview
+    print(f"\nConducting conversation between {args.primary} and {args.human}...")
+    conversation_history = conduct_conversation(
+        primary_llm=primary_llm,
+        human_llm=human_llm,
+        scenario_questions=scenario_questions
+    )
+    
+    # Take AAI interview
+    print(f"\nConducting AAI interview with {args.primary}...")
+    aai_responses: List[Tuple[str, str]] = primary_llm.take_aai_interview()
+    
+    # Evaluate responses
+    print(f"\nEvaluating responses with {args.judge}...")
+    scores = judge_llm.evaluate(aai_responses)
     
     # Print results
     print("\nIDB Evaluation Results:")
@@ -96,35 +105,51 @@ def run_idb_evaluation(config: dict, args) -> None:
     # Save results
     results = {
         "evaluation_type": args.run,
-        "subject_model": args.primary,
+        "primary_model": args.primary,
+        "human_model": args.human,
         "judge_model": args.judge,
+        "conversation_history": conversation_history,
         "scores": scores,
-        "conversation": subject_llm.get_conversation_history()
+        "responses": aai_responses
     }
-    
-    output_file = f"results_{args.run}_{args.primary}_{args.judge}.json"
-    with open(output_file, 'w') as f:
-        json.dump(results, f, indent=2)
-    print(f"\nResults saved to: {output_file}")
 
 def main():
     # Parse arguments
     args = parse_args()
-    
-    # Check required packages
-    package_messages = check_required_packages(args.config)
-    for message in package_messages:
-        print(message)
-    
+
     # Load config
     with open(args.config) as f:
         config = json.load(f)
+    if args.config is None:
+        raise ValueError("Config file is required")
     
-    # Validate selected models exist in config
-    if args.primary not in config["models"]:
-        raise ValueError(f"Primary LLM '{args.primary}' not found in config")
+    # Check required packages
+    package_messages = check_required_packages(config)
+    for message in package_messages:
+        print(message)
+    
+    # Validate arguments based on evaluation type
+    if args.run.startswith('iab'):
+        if not args.primary:
+            raise ValueError("Primary LLM (--primary) is required for IAB evaluation")
+        if args.primary not in config["models"]:
+            raise ValueError(f"Primary LLM '{args.primary}' not found in config")
+    elif args.run.startswith('idb'):
+        if not args.human:
+            raise ValueError("Human LLM (--human) is required for IDB evaluation")
+        if args.human not in config["models"]:
+            raise ValueError(f"Human LLM '{args.human}' not found in config")
+    
+    # Validate judge model exists
+    if not args.judge:
+        raise ValueError("Judge LLM (--judge) is required for evaluation")
     if args.judge not in config["models"]:
         raise ValueError(f"Judge LLM '{args.judge}' not found in config")
+
+    if args.dev:
+        args.primary = "mock"
+        args.judge = "mock"
+        args.human = "mock"
 
     # Run appropriate evaluation based on flag
     if args.run.startswith('iab'):

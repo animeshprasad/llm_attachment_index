@@ -14,13 +14,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         '--primary', 
         type=str, 
-        default='openai-gpt4',
+        default='openai-gpt4o',
         help='Primary LLM to use'
+    )
+    parser.add_argument(
+        '--human', 
+        type=str, 
+        default='openai-gpt4o',
+        help='Human LLM to use'
     )
     parser.add_argument(
         '--judge', 
         type=str, 
-        default='anthropic-claude',
+        default='openai-gpt4o',
         help='Judge LLM to use'
     )
     parser.add_argument(
@@ -34,24 +40,18 @@ def parse_args() -> argparse.Namespace:
                 idb2: Implicit Attachment Cues
                 idb3: Explicit Attachment Scenarios'''
     )
+    parser.add_argument(
+        '--dev',
+        type=bool,
+        default=True,
+        help='Run in development mode, skipping LLM calls and just using mock'
+    )
     return parser.parse_args()
 
-def get_required_providers(config_path: str) -> List[str]:
-    """Get list of providers needed based on config."""
-    with open(config_path) as f:
-        config = json.load(f)
-    
-    providers = set()
-    for model_config in config["models"].values():
-        providers.add(model_config["provider"])
-    return list(providers)
 
-def check_required_packages(config_path: str) -> List[str]:
+def check_required_packages(config: dict) -> List[str]:
     """Check and report status of optional package dependencies based on config."""
     package_messages = []
-    
-    with open(config_path) as f:
-        config = json.load(f)
     
     providers = set()
     for model_config in config["models"].values():
