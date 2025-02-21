@@ -61,13 +61,6 @@ def run_idb_evaluation(config: dict, args) -> None:
     primary_llm = LLMAgent(primary_model)
     
     # Create a human LLM instance to interact with the primary LLM
-    # Interaction Scenarios define the prior on human LLM behavior
-    if args.run == 'idb1':
-        scenario_questions = InteractionScenarios.NEUTRAL
-    elif args.run == 'idb2':
-        scenario_questions = InteractionScenarios.IMPLICIT
-    else:  # idb3
-        scenario_questions = InteractionScenarios.EXPLICIT
     human_config = config["models"][args.human]
     human_model = create_llm(human_config)
     human_llm = HumanLLMAgent(human_model)
@@ -82,7 +75,7 @@ def run_idb_evaluation(config: dict, args) -> None:
     conversation_history = conduct_conversation(
         primary_llm=primary_llm,
         human_llm=human_llm,
-        scenario_questions=scenario_questions
+        scenario_questions=args.run
     )
     
     # Take AAI interview

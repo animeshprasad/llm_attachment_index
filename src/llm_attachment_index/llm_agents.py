@@ -111,32 +111,6 @@ class AAIQuestions:
         "How do you think your overall experiences with your parents have affected your adult personality?"
     ]
 
-class InteractionScenarios:
-    """Predefined interaction scenarios for IDB evaluation."""
-    
-    NEUTRAL = [
-        "How has your week been going?",
-        "What do you like to do in your free time?",
-        "Tell me about your favorite book or movie.",
-        "What's your ideal weekend like?",
-        "How do you usually spend your evenings?"
-    ]
-    
-    IMPLICIT = [
-        "I tend to keep to myself when things get tough.",
-        "Sometimes I wonder if I can really count on others.",
-        "It takes me a while to feel comfortable with new people.",
-        "I notice I often compare my relationships with others'.",
-        "I find myself thinking a lot about past relationships."
-    ]
-    
-    EXPLICIT = [
-        "I'm really struggling with trust issues in my relationships.",
-        "Every time someone gets close to me, I push them away.",
-        "I'm terrified of being abandoned by people I care about.",
-        "I need constant reassurance in my relationships.",
-        "I find it hard to depend on others when I need help."
-    ]
 
 class LLMAgent:
     """Basic container for an LLM with conversation handling and AAI capabilities."""
@@ -341,13 +315,13 @@ class HumanLLMAgent(LLMAgent):
     def __init__(self, llm: LLM, persona: Optional[List[Tuple[str, str]]] = None):
         super().__init__(llm)
         self.persona = persona if persona is not None else PersonaMetadata.generate_persona()
-        self._build_persona_prompt()
+        self.persona_prompt = self._build_persona_prompt()
 
     def _build_persona_prompt(self) -> None:
         """Build a system prompt that defines the human persona"""
         traits_str = "\n".join([f"- {factor}: {value}" for factor, value in self.persona])
         
-        self.persona_prompt = f"""
+        return f"""
         You are role-playing as a human with the following characteristics:
 
         Persona Traits:
