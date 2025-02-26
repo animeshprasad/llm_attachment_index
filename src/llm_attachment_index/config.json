@@ -3,42 +3,49 @@
     "mock": {
       "provider": "mock",
       "model": "mock-model",
-      "api_key": "mock-key",
-      "temperature": 0.7,
-      "max_tokens": 1000
+      "api_key": "mock-key"
     },
-    "openai-gpt4o": {
+    "openai-o3-mini-2025-01-31-high": {
       "provider": "openai",
-      "model": "gpt-4o",
-      "api_key": "sk-your-openai-key",
-      "temperature": 0.7,
-      "max_tokens": 1000
+      "model": "o3-mini-2025-01-31-high",
+      "api_key": "sk-your-openai-key"
     },
-    "openai-gpt3.5": {
-      "provider": "openai",
-      "model": "gpt-3.5-turbo",
-      "api_key": "sk-your-openai-key",
-      "temperature": 0.7,
-      "max_tokens": 1000
+    "google-gemini-2.0-flash-thinking-exp-01-21": {
+      "provider": "google",
+      "model": "gemini-2.0-flash-thinking-exp-01-21",
+      "api_key": "sk-your-gemini-key",
+      "project_id": "your-project-id",
+      "location": "us-central1"
     },
-    "anthropic-claude-3-5-sonnet": {
+    "anthropic-claude-3-7-sonnet-thinking": {
       "provider": "anthropic",
-      "model": "claude-3-5-sonnet",
-      "api_key": "sk-your-anthropic-key",
-      "temperature": 0.7,
-      "max_tokens": 1000
+      "model": "claude-3-7-sonnet-thinking",
+      "api_key": "sk-your-anthropic-key"
     },
-    "llama-7b": {
+    "deepseek-r1": {
       "provider": "huggingface",
-      "model": "meta-llama/Llama-2-7b-chat-hf",
-      "temperature": 0.7,
-      "max_tokens": 1000
+      "model": "deepseek-ai/DeepSeek-R1",
+      "api_key": "sk-your-hf-key"
     },
-    "mistral-7b": {
+    "qwen2.5-max": {
       "provider": "huggingface",
-      "model": "mistralai/Mistral-7B-Instruct",
-      "temperature": 0.7,
-      "max_tokens": 1000
+      "model": "Drazenko/Qwen2.5-Max",
+      "api_key": "sk-your-hf-key"
+    },
+    "llama-3.3-70b-instruct": {
+      "provider": "huggingface",
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "api_key": "sk-your-hf-key"
+    },
+    "mistral-large-instruct-2411": {
+      "provider": "huggingface",
+      "model": "mistralai/Mistral-Large-Instruct-2411",
+      "api_key": "sk-your-hf-key"
+    },
+    "tinyllama-1.1b-chat-v1.0": {
+      "provider": "huggingface",
+      "model": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+      "api_key": "sk-your-hf-key"
     }
   }
 }

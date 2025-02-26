@@ -1,6 +1,8 @@
 import argparse
-import json
-from typing import List
+from typing import List, Dict, Any, Callable
+
+# Global model cache to reuse HF models
+_MODEL_CACHE: Dict[str, Any] = {}
 
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
@@ -14,26 +16,26 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         '--primary', 
         type=str, 
-        default='openai-gpt4o',
+        default='tinyllama-1.1b-chat-v1.0',
         help='Primary LLM to use'
     )
     parser.add_argument(
         '--human', 
         type=str, 
-        default='openai-gpt4o',
+        default='tinyllama-1.1b-chat-v1.0',
         help='Human LLM to use'
     )
     parser.add_argument(
         '--judge', 
         type=str, 
-        default='openai-gpt4o',
+        default='tinyllama-1.1b-chat-v1.0',
         help='Judge LLM to use'
     )
     parser.add_argument(
         '--run',
         type=str,
         choices=['iab', 'idb1', 'idb2', 'idb3'],
-        default='iab',
+        default='idb1',
         help='''Evaluation type to run:
                 iab: IAB evaluations
                 idb1: Neutral Interaction
@@ -43,7 +45,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         '--dev',
         type=bool,
-        default=True,
+        default=False,
         help='Run in development mode, skipping LLM calls and just using mock'
     )
     return parser.parse_args()
@@ -57,8 +59,8 @@ def check_required_packages(config: dict) -> List[str]:
     for model_config in config["models"].values():
         providers.add(model_config["provider"])
 
-    # OpenAI and DeepSeek
-    if "openai" in providers or "deepseek" in providers:
+    # OpenAI and DeepSeek and Google
+    if "openai" in providers:
         try:
             from openai import OpenAI
         except ImportError:
@@ -79,3 +81,40 @@ def check_required_packages(config: dict) -> List[str]:
             package_messages.append("Please install transformers via: pip install transformers")
     
     return package_messages 
+
+
+
+def get_or_create_llm(model_config: dict, create_llm_fn: Callable) -> Any:
+    """Get an existing LLM instance from cache or create a new one.
+    
+    Args:
+        model_config: Configuration dictionary for the model
+        create_llm_fn: Function to create new LLM instance
+        
+    Returns:
+        LLM model instance (either cached or newly created)
+    """
+    model_key = f"{model_config.get('provider')}_{model_config.get('model')}"
+    
+    # Only cache local HF models
+    if model_config.get('provider') == 'huggingface':
+        if model_key in _MODEL_CACHE:
+            return _MODEL_CACHE[model_key]
+        
+        model = create_llm_fn(model_config)
+        _MODEL_CACHE[model_key] = model
+        return model
+    
+    # For non-HF models, create new instance
+    return create_llm_fn(model_config) 
+
+def has_gpu() -> bool:
+    """Check if GPU is available.
+    Returns:
+        bool: True if GPU is available, False otherwise
+    """
+    try:
+        import torch
+        return torch.cuda.is_available()
+    except ImportError:
+        return False 

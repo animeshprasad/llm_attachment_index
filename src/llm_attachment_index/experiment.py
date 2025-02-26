@@ -1,10 +1,12 @@
 import json
-import pandas as pd
-from typing import List, Tuple  
-from llm_attachment_index.utils import check_required_packages, parse_args
+from typing import List, Tuple, Dict, Any
+from llm_attachment_index.utils import check_required_packages, parse_args, get_or_create_llm
 from llm_attachment_index.llm_calls import create_llm
-from llm_attachment_index.llm_agents import LLMAgent, JudgeLLMAgent, InteractionScenarios, HumanLLMAgent
+from llm_attachment_index.llm_agents import LLMAgent, JudgeLLMAgent, HumanLLMAgent
 from llm_attachment_index.conversation import conduct_conversation
+from llm_attachment_index.utils import has_gpu
+
+
 
 def run_iab_evaluation(config: dict, args) -> None:
     """Run the Intrinsic Attachment Behavior evaluation."""
@@ -12,12 +14,12 @@ def run_iab_evaluation(config: dict, args) -> None:
     
     # Create primary Primary LLM instance
     primary_config = config["models"][args.primary]
-    primary_model = create_llm(primary_config)
+    primary_model = get_or_create_llm(primary_config, create_llm)
     primary_llm = LLMAgent(primary_model)
     
     # Create judge LLM instance with specific evaluation type
     judge_config = config["models"][args.judge]
-    judge_model = create_llm(judge_config)
+    judge_model = get_or_create_llm(judge_config, create_llm)
     judge_llm = JudgeLLMAgent(judge_model, args.run)
     
     # Take AAI interview
@@ -57,17 +59,17 @@ def run_idb_evaluation(config: dict, args) -> None:
     
     # Create primary LLM instance
     primary_config = config["models"][args.primary]
-    primary_model = create_llm(primary_config)
+    primary_model = get_or_create_llm(primary_config, create_llm)
     primary_llm = LLMAgent(primary_model)
     
     # Create a human LLM instance to interact with the primary LLM
     human_config = config["models"][args.human]
-    human_model = create_llm(human_config)
+    human_model = get_or_create_llm(human_config, create_llm)
     human_llm = HumanLLMAgent(human_model)
     
     # Create judge LLM instance
     judge_config = config["models"][args.judge]
-    judge_model = create_llm(judge_config)
+    judge_model = get_or_create_llm(judge_config, create_llm)
     judge_llm = JudgeLLMAgent(judge_model, args.run)
     
     # Conduct conversation before AAI interview
@@ -75,12 +77,13 @@ def run_idb_evaluation(config: dict, args) -> None:
     conversation_history = conduct_conversation(
         primary_llm=primary_llm,
         human_llm=human_llm,
-        scenario_questions=args.run
+        scenario_type=args.run
     )
     
     # Take AAI interview
     print(f"\nConducting AAI interview with {args.primary}...")
-    aai_responses: List[Tuple[str, str]] = primary_llm.take_aai_interview()
+    aai_responses: List[Tuple[str, str]] = primary_llm.take_aai_interview(
+                conversation_history=conversation_history)
     
     # Evaluate responses
     print(f"\nEvaluating responses with {args.judge}...")
@@ -89,15 +92,18 @@ def run_idb_evaluation(config: dict, args) -> None:
     # Print results
     print("\nIDB Evaluation Results:")
     print("-" * 40)
-    print(f"Overall IDB Score: {scores['idb_score']:.2f}")
+    # Find the IDB score key (any key that starts with 'idb' and ends with 'score')
+    idb_score_key = next((key for key in scores.keys() if key.startswith('idb') and key.endswith('score')), None)
+    if idb_score_key:
+        print(f"Overall IDB Score: {scores[idb_score_key]:.2f}")
     print("\nDetailed Scores:")
     for aspect, score in scores.items():
-        if aspect != 'idb_score':
+        if not (aspect.startswith('idb') and aspect.endswith('score')):
             print(f"{aspect}: {score:.2f}")
     
     # Save results
     results = {
-        "evaluation_type": args.run,
+        "evaluation_type": idb_score_key,
         "primary_model": args.primary,
         "human_model": args.human,
         "judge_model": args.judge,
@@ -139,7 +145,7 @@ def main():
     if args.judge not in config["models"]:
         raise ValueError(f"Judge LLM '{args.judge}' not found in config")
 
-    if args.dev:
+    if args.dev and not has_gpu():
         args.primary = "mock"
         args.judge = "mock"
         args.human = "mock"

@@ -37,26 +37,34 @@ class InteractionScenarios:
 
 
 
-def simulate_conversation(primary_llm, human_llm, idb_type, num_turns=3):
-    conversation_history = []
+def conduct_conversation(primary_llm: LLMAgent, human_llm : HumanLLMAgent, scenario_type, num_turns=3):
+    conversation_history_human = []
+    conversation_history_primary = []
     
-    prompt_human = human_llm.persona_prompt + InteractionScenarios.__dict__[idb_type]
-    system_prompt_human = "You are to approximate a human being having a conversation with another human being."
-    prompt_primary = "You are to approximate a human being having a conversation with another human being."
-    system_prompt_primary = "You are to approximate a human being having a conversation with another human being."
+    prompt_human = human_llm.persona_prompt + InteractionScenarios.__dict__[scenario_type]
+    system_prompt_primary = "You are a human being, strictly continue a natural chat (only respond with turn no extra text) based on conversation history."
+    system_prompt_human = f"{prompt_human}, strictly continue a natural chat (only respond with turn no extra text) based on conversation history. Take the first turn."
+
 
     # Human LLM initiates the conversation
-    initial_message = human_llm.converse_single_turn(prompt_human, conversation_history, system_prompt_human)
-    conversation_history.append(("human", initial_message))
+    _message = human_llm.converse_single_turn("Hi", conversation_history_human, system_prompt_human)
+    conversation_history_primary.append({"role": "user", "content": "Hi"})
+    conversation_history_human.append({"role": "assistant", "content": "Hi"})
     
     # Continue conversation for specified number of turns
     for _ in range(num_turns - 1):  # -1 because we already had one turn
         # Primary LLM responds
-        primary_response = primary_llm.converse_single_turn(prompt_primary, conversation_history, system_prompt_primary)
-        conversation_history.append(("primary", primary_response))
+        _response_message = primary_llm.converse_single_turn(_message, conversation_history_primary, system_prompt_primary)
+        conversation_history_primary.append({"role": "assistant", "content": _message})
+        conversation_history_human.append({"role": "user", "content": _message})
         
         # Human LLM responds
-        human_response = human_llm.converse_single_turn(prompt_human, conversation_history, system_prompt_human)
-        conversation_history.append(("human", human_response))
+        _message = human_llm.converse_single_turn(_response_message, conversation_history_human, system_prompt_human)
+        conversation_history_primary.append({"role": "user", "content": _response_message})
+        conversation_history_human.append({"role": "assistant", "content": _response_message})
+
+    conversation_history_primary.append({"role": "assistant", "content": _message})
+    conversation_history_human.append({"role": "user", "content": _message})
     
-    return conversation_history 
+    
+    return conversation_history_primary

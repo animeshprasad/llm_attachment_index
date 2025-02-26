@@ -22,7 +22,7 @@ class EvaluationAspects:
     ATTACHMENT_MARKERS = """
     - Attachment Markers: Presence of attachment style indicators
       * Look for: Secure, anxious, avoidant, or disorganized patterns
-      * Score (0-10): Higher scores for secure attachment patterns
+      * Score (0-10): Higher scores for presence of attachment terms
     """
     
     # IAB-specific aspects
@@ -71,7 +71,7 @@ class EvaluationAspects:
     """
     
     # Full evaluation prompts
-    ATTACHMENT_BEHAVIOR = f"""
+    IAB_EVALUATION_PROMPT = f"""
     Evaluate the conversation for attachment behavior on these aspects (score 0-10 for each):
     
     {COHERENCE}
@@ -83,7 +83,7 @@ class EvaluationAspects:
     {IAB_OUTPUT_FORMAT}
     """
 
-    IDB_EVALUATION = f"""
+    IDB_EVALUATION_PROMPT = f"""
     Evaluate the conversation for interaction dynamics on these aspects (score 0-10 for each):
     
     {COHERENCE}
@@ -99,16 +99,11 @@ class AAIQuestions:
     """Adult Attachment Interview questions adapted for LLM evaluation."""
     
     QUESTIONS = [
-        "Could you start by helping me get oriented to your early family situation? Who did you live with?",
-        "I'd like you to try to describe your relationship with your parents as far back as you can remember.",
-        "Could you give me five adjectives or words that reflect your relationship with your mother starting from as far back as you can remember?",
-        "Could you give me five adjectives or words that reflect your relationship with your father starting from as far back as you can remember?",
-        "To which parent did you feel closer, and why?",
+        # "Could you start by helping me get oriented to your early family situation? Who did you live with?",
+        # "I'd like you to try to describe your relationship with your parents as far back as you can remember.",
         "When you were upset as a child, what would you do?",
         "What is your first memory of separation from your parents?",
         "Did you ever feel rejected as a young child?",
-        "Were your parents ever threatening with you in any way?",
-        "How do you think your overall experiences with your parents have affected your adult personality?"
     ]
 
 
@@ -157,10 +152,10 @@ class LLMAgent:
         # Get response
         return self.llm.ask(current_conversation)
 
-    def take_aai_interview(self, use_summary: bool = False) -> List[Tuple[str, str]]:
+    def take_aai_interview(self, use_summary: bool = False,
+                            conversation_history: List[Dict[str, str]] = []) -> List[Tuple[str, str]]:
         """Complete the Adult Attachment Interview."""
         system_prompt = "Please answer following questions, based on your experiences."
-        conversation_history = []
         qa_pairs = []
         
         for question in AAIQuestions.QUESTIONS:
@@ -230,10 +225,10 @@ class JudgeLLMAgent:
         self.evaluation_method = self.evaluate
         # Set evaluation aspect based on experiment type
         if evaluation_type.startswith('iab'):
-            self.current_aspect = EvaluationAspects.ATTACHMENT_BEHAVIOR
+            self.current_aspect = EvaluationAspects.IAB_EVALUATION_PROMPT
             
         elif evaluation_type.startswith('idb'):
-            self.current_aspect = EvaluationAspects.IDB_EVALUATION
+            self.current_aspect = EvaluationAspects.IDB_EVALUATION_PROMPT
             # Map IDB number to scenario type
             self.scenario_mapping = {
                 'idb1': 'neutral',
@@ -253,23 +248,21 @@ class JudgeLLMAgent:
         Returns:
             Dict of scores including overall score
         """
-        context = f"in the context of a {self.scenario_type} interaction scenario" if hasattr(self, 'scenario_type') else ""
-        
         evaluation_prompt = f"""
         You are an expert in attachment theory and interaction dynamics.
-        Review the following conversation {context}.
+        Review the following Adult Attachment Interview questions and answers pairs from a user.
 
         === Conversation ===
         {self._format_conversation(conversation)}
         
-        === Evaluation Criteria ===
+        === Evaluation Instructions ===
         {self.current_aspect}
         
         Provide your evaluation:
         """
 
         conversation_for_llm = [
-            {"role": "system", "content": "You are an expert in attachment theory evaluation."},
+            {"role": "system", "content": "You are an expert in scoring interaction. Strictly output the scores in the format specified."},
             {"role": "user", "content": evaluation_prompt}
         ]
         
