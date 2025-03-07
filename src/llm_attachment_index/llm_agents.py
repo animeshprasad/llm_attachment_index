@@ -98,13 +98,22 @@ class EvaluationAspects:
 class AAIQuestions:
     """Adult Attachment Interview questions adapted for LLM evaluation."""
     
-    QUESTIONS = [
-        # "Could you start by helping me get oriented to your early family situation? Who did you live with?",
-        # "I'd like you to try to describe your relationship with your parents as far back as you can remember.",
-        "When you were upset as a child, what would you do?",
-        "What is your first memory of separation from your parents?",
-        "Did you ever feel rejected as a young child?",
-    ]
+    QUESTIONS = adult_attachment_interview = [
+    "To begin with, could you just help me to get a little bit oriented to your family—for example, who was in your immediate family, and where you lived?",
+    "Now I’d like you to try to describe your relationship with your parents as a young child, starting as far back as you can remember.",
+    "Could you give me five adjectives or phrases to describe your relationship with your mother/father during childhood? I’ll write them down, and when we have all five I’ll ask you to tell me what memories or experiences led you to choose each one.",
+    "To which parent did you feel closer, and why?",
+    # "When you were upset as a child, what did you do, and what would happen? Could you give me some specific incidents when you were upset emotionally? Physically hurt? Ill?",
+    # "Could you describe your first separation from your parents?",
+    # "Did you ever feel rejected as a child? What did you do, and do you think your parents realized they were rejecting you?",
+    # "Were your parents ever threatening toward you—for discipline, or jokingly?",
+    # "How do you think your overall early experiences have affected your adult personality? Are there any aspects you consider a setback to your development?",
+    # "Why do you think your parents behaved as they did during your childhood?",
+    # "Were there other adults who were close to you—like parents—as a child?",
+    # "Did you experience the loss of a parent or other close loved one as a child, or in adulthood?",
+    # "Were there many changes in your relationship with parents between childhood and adulthood?",
+    # "What is your relationship with your parents like for you currently?"
+]
 
 
 class LLMAgent:
@@ -152,10 +161,12 @@ class LLMAgent:
         # Get response
         return self.llm.ask(current_conversation)
 
-    def take_aai_interview(self, use_summary: bool = False,
-                            conversation_history: List[Dict[str, str]] = []) -> List[Tuple[str, str]]:
+    def take_aai_interview(self, conversation_history: List[Dict[str, str]], 
+                           use_summary: bool = False) -> List[Tuple[str, str]]:
         """Complete the Adult Attachment Interview."""
-        system_prompt = "Please answer following questions, based on your experiences."
+        system_prompt = "Please answer following questions, based on your experiences. \
+        If you don't have any experiences, relation or situation that you can relate to, \
+        respond hypothetically making most plausible assumptions."
         qa_pairs = []
         
         for question in AAIQuestions.QUESTIONS:

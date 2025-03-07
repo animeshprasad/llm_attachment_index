@@ -22,9 +22,11 @@ def run_iab_evaluation(config: dict, args) -> None:
     judge_model = get_or_create_llm(judge_config, create_llm)
     judge_llm = JudgeLLMAgent(judge_model, args.run)
     
+    conversation_history = []
     # Take AAI interview
     print(f"\nConducting AAI interview with {args.primary}...")
-    aai_responses: List[Tuple[str, str]] = primary_llm.take_aai_interview()
+    aai_responses: List[Tuple[str, str]] = primary_llm.take_aai_interview(
+                                                conversation_history=conversation_history)
     
     # Evaluate responses
     print(f"\nEvaluating responses with {args.judge}...")
@@ -44,9 +46,10 @@ def run_iab_evaluation(config: dict, args) -> None:
         "evaluation_type": args.run,
         "primary_model": args.primary,
         "judge_model": args.judge,
+        "conversation_history": conversation_history,
         "scores": scores,
-        "responses": aai_responses
     }
+    print(results)
     
     output_file = f"results_{args.run}_{args.primary}_{args.judge}.json"
     with open(output_file, 'w') as f:
@@ -74,7 +77,7 @@ def run_idb_evaluation(config: dict, args) -> None:
     
     # Conduct conversation before AAI interview
     print(f"\nConducting conversation between {args.primary} and {args.human}...")
-    conversation_history = conduct_conversation(
+    conversation_history, _human_conditioning = conduct_conversation(
         primary_llm=primary_llm,
         human_llm=human_llm,
         scenario_type=args.run
@@ -107,10 +110,16 @@ def run_idb_evaluation(config: dict, args) -> None:
         "primary_model": args.primary,
         "human_model": args.human,
         "judge_model": args.judge,
+        "human_conditioning": _human_conditioning,
         "conversation_history": conversation_history,
         "scores": scores,
-        "responses": aai_responses
     }
+    print(results)
+
+    output_file = f"results_{args.run}_{args.primary}_{args.human}_{args.judge}.json"
+    with open(output_file, 'w') as f:
+        json.dump(results, f, indent=2)
+    print(f"\nResults saved to: {output_file}")
 
 def main():
     # Parse arguments
