@@ -8,7 +8,7 @@
     "openai-o3-mini-2025-01-31": {
       "provider": "openai",
       "model": "gpt-4o",
-      "api_key": "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"
+      "api_key": ""
     },
     "google-gemini-2.0-flash-thinking-exp-01-21": {
       "provider": "google",
