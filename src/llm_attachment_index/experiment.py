@@ -1,12 +1,72 @@
 import json
+import hashlib
+from pathlib import Path
 from typing import List, Tuple, Dict, Any
 from llm_attachment_index.utils import check_required_packages, parse_args, get_or_create_llm
 from llm_attachment_index.llm_calls import create_llm
 from llm_attachment_index.llm_agents import LLMAgent, JudgeLLMAgent, HumanLLMAgent
 from llm_attachment_index.conversation import conduct_conversation
 from llm_attachment_index.utils import has_gpu
+from llm_attachment_index.constants import PersonaMetadata
 
 
+
+def save_experiment_results(results: Dict[str, Any], exp_type: str) -> str:
+    """Save experiment results and maintain experiment mapping.
+    
+    Args:
+        results: Results dictionary to save
+        exp_type: Experiment type ('iab' or 'idb')
+    
+    Returns:
+        Path to saved results file
+    """
+    # Extract parameters for experiment ID
+    params = {
+        "evaluation_type": results["evaluation_type"],
+        "primary_model": results["primary_model"],
+        "judge_model": results["judge_model"],
+    }
+    
+    # Add IDB-specific parameters
+    if exp_type == 'idb':
+        params.update({
+            "human_model": results["human_model"],
+            "persona": str(results["persona"]),
+            "human_conditioning": str(results["human_conditioning"])
+        })
+    
+    # Generate experiment ID
+    param_str = json.dumps(params, sort_keys=True)
+    exp_id = hashlib.md5(param_str.encode()).hexdigest()[:8]
+    
+    # Create results directory if it doesn't exist
+    results_dir = Path("results")
+    results_dir.mkdir(exist_ok=True)
+    
+    # Save results with short filename
+    results_file = results_dir / f"{exp_type}_{exp_id}.json"
+    with open(results_file, 'w') as f:
+        json.dump(results, f, indent=2)
+    
+    # Update experiment mapping file
+    mapping_file = results_dir / "experiment_mapping.json"
+    try:
+        if mapping_file.exists():
+            with open(mapping_file, 'r') as f:
+                mapping = json.load(f)
+        else:
+            mapping = {}
+    except json.JSONDecodeError:
+        mapping = {}
+    
+    # Add new experiment to mapping
+    mapping[exp_id] = params
+    
+    with open(mapping_file, 'w') as f:
+        json.dump(mapping, f, indent=2, sort_keys=True)
+    
+    return str(results_file)
 
 def run_iab_evaluation(config: dict, args) -> None:
     """Run the Intrinsic Attachment Behavior evaluation."""
@@ -49,14 +109,12 @@ def run_iab_evaluation(config: dict, args) -> None:
         "conversation_history": conversation_history,
         "scores": scores,
     }
-    print(results)
     
-    output_file = f"results_{args.run}_{args.primary}_{args.judge}.json"
-    with open(output_file, 'w') as f:
-        json.dump(results, f, indent=2)
-    print(f"\nResults saved to: {output_file}")
+    # Save results using new function
+    results_file = save_experiment_results(results, 'iab')
+    print(f"\nResults saved to: {results_file}")
 
-def run_idb_evaluation(config: dict, args) -> None:
+def run_idb_evaluation(config: dict, args, persona: list[tuple[str, str]]) -> None:
     """Run the Interaction Dynamics Behavior evaluation."""
     print(f"\nRunning IDB Evaluation (type: {args.run})...")
     
@@ -68,7 +126,7 @@ def run_idb_evaluation(config: dict, args) -> None:
     # Create a human LLM instance to interact with the primary LLM
     human_config = config["models"][args.human]
     human_model = get_or_create_llm(human_config, create_llm)
-    human_llm = HumanLLMAgent(human_model)
+    human_llm = HumanLLMAgent(human_model, persona)
     
     # Create judge LLM instance
     judge_config = config["models"][args.judge]
@@ -77,7 +135,7 @@ def run_idb_evaluation(config: dict, args) -> None:
     
     # Conduct conversation before AAI interview
     print(f"\nConducting conversation between {args.primary} and {args.human}...")
-    conversation_history, _human_conditioning = conduct_conversation(
+    conversation_history, _human_attachment_conditioning = conduct_conversation(
         primary_llm=primary_llm,
         human_llm=human_llm,
         scenario_type=args.run
@@ -110,16 +168,15 @@ def run_idb_evaluation(config: dict, args) -> None:
         "primary_model": args.primary,
         "human_model": args.human,
         "judge_model": args.judge,
-        "human_conditioning": _human_conditioning,
+        "persona": persona,
+        "human_conditioning": _human_attachment_conditioning,
         "conversation_history": conversation_history,
         "scores": scores,
     }
-    print(results)
-
-    output_file = f"results_{args.run}_{args.primary}_{args.human}_{args.judge}.json"
-    with open(output_file, 'w') as f:
-        json.dump(results, f, indent=2)
-    print(f"\nResults saved to: {output_file}")
+    
+    # Save results using new function
+    results_file = save_experiment_results(results, 'idb')
+    print(f"\nResults saved to: {results_file}")
 
 def main():
     # Parse arguments
@@ -163,7 +220,9 @@ def main():
     if args.run.startswith('iab'):
         run_iab_evaluation(config, args)
     elif args.run.startswith('idb'):
-        run_idb_evaluation(config, args)
+        for i, persona in enumerate(PersonaMetadata.generate_all_personas()):
+            if i < 10:
+                run_idb_evaluation(config, args, persona)
     else:
         raise ValueError(f"Unknown evaluation type: {args.run}")
 

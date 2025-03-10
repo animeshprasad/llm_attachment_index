@@ -14,12 +14,6 @@ class InteractionScenarios:
         "disorganized"
     ]
 
-    # Common base string for all scenarios
-    base_string = """
-    You are to approximate a human being having a conversation with another human being.
-    The conversation should be natural and engaging. The conversation should be 3-5 turns long.
-    The conversation should be about the topic of relationships and past experiences."""
-
     @staticmethod
     def get_attachment_style(index: int | None = None) -> str:
         """Get attachment style by index.
@@ -49,10 +43,15 @@ class InteractionScenarios:
         Returns:
             Scenario prompt string
         """
+        if attachment_index is None:
+            attachment_index = random.randint(0, len(InteractionScenarios.attachment_style) - 1)
+
+        type = f"You are a person who is {InteractionScenarios.get_attachment_style(attachment_index)} in their relationships."
+        # Base prompts
         base_prompts = {
-            'idb1': InteractionScenarios.base_string,
-            'idb2': f"{InteractionScenarios.base_string}\nFocus specifically on your attachment style.",
-            'idb3': f"{InteractionScenarios.base_string}\nFocus specifically on your attachment style. You are a person who is {InteractionScenarios.get_attachment_style(attachment_index)} in their relationships. \nThe conversation should be about your attachment style."
+            'idb1': f"\nFocus on neutral topics, avoiding topics that reveal attachment style. {type}",
+            'idb2': f"\nFocus on topics that implicitly reveal attachment style. {type}",
+            'idb3': f"\nFocus specifically on your attachment style. {type}"
         }
         
         assert scenario_type in base_prompts, \
@@ -65,8 +64,8 @@ def conduct_conversation(
     human_llm: HumanLLMAgent,
     scenario_type: str,
     attachment_index: int | None = None,
-    turn_limit: int = 15
-) -> List[Dict[str, str]]:
+    turn_limit: int = 2
+) -> Tuple[List[Tuple[str, str]], str]:
     """Conduct conversation between primary and human LLM agents.
     
     Args:
@@ -77,6 +76,8 @@ def conduct_conversation(
                         Must be within range [0, len(attachment_style)-1] if provided
     """
     # Get scenario prompt with optional attachment style
+
+    # Common base string for all scenarios
     scenario_prompt = InteractionScenarios.get_scenario(scenario_type, attachment_index)
     prompt_human = human_llm.persona_prompt + scenario_prompt
     
@@ -84,7 +85,7 @@ def conduct_conversation(
     conversation_history_primary = []
     
     system_prompt_primary = "You are a conversational agent, strictly continue a natural chat (only respond with turn no extra text) based on conversation history."
-    system_prompt_human = f"{prompt_human}, strictly continue a natural chat (only respond with turn no extra text) based on conversation history. Take the first turn."
+    system_prompt_human = f"You are to approximate a human being having a conversation with another human being. {prompt_human}, strictly continue a natural chat (only respond with turn no extra text) based on conversation history. Take the first turn."
 
 
     # Human LLM initiates the conversation
@@ -105,4 +106,4 @@ def conduct_conversation(
         conversation_history_human.append({"role": "assistant", "content": _message})
 
         
-    return conversation_history_primary, system_prompt_human
+    return conversation_history_primary, scenario_prompt

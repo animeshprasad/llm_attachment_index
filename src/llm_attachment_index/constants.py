@@ -1,10 +1,10 @@
+import random
 class PersonalityTraits:
-    """Based on the Big Five (OCEAN) personality model, widely used in psychology and AI research"""
-    OPENNESS = ['conventional', 'curious', 'creative', 'traditional', 'analytical']
-    CONSCIENTIOUSNESS = ['organized', 'careless', 'responsible', 'spontaneous', 'methodical']
-    EXTRAVERSION = ['outgoing', 'reserved', 'energetic', 'solitary', 'assertive']
-    AGREEABLENESS = ['compassionate', 'detached', 'cooperative', 'competitive', 'diplomatic']
-    NEUROTICISM = ['stable', 'anxious', 'resilient', 'sensitive', 'confident']
+    """Based on the Briggs Myers Personality Test"""
+    BRIGGS_MYERS = ["ISTJ", "ISFJ", "INFJ", "INTJ", 
+                    "ISTP", "ISFP", "INFP", "INTP",
+                    "ESTP", "ESFP", "ENFP", "ENTP",
+                    "ESTJ", "ESFJ", "ENFJ", "ENTJ"]
 
 class SocialBackground:
     """Socio-economic factors that influence behavior and worldview"""
@@ -12,23 +12,23 @@ class SocialBackground:
 
 class LifeExperiences:
     """Significant events and experiences that shape personality and behavior"""
-    FORMATIVE = ['early-success', 'early-failure', 'relocation', 'cultural-shock', 'mentorship']
     RELATIONSHIPS = ['strong-bonds', 'isolation', 'betrayal', 'supportive-network', 'competitive']
 
 class Demographics:
     """Basic demographic attributes that form the factual foundation of a persona"""
     GENDER = ['male', 'female', 'non-binary']
-    AGE_GROUP = ['18-25', '26-35', '36-45', '46-55', '56+']
+    AGE_GROUP = ['teenager', 'adult', 'middle-aged', 'elderly']
     ETHNICITY = ['asian', 'black', 'hispanic', 'white', 'middle-eastern', 'mixed']
-    SEXUALITY = ['straight', 'gay', 'lesbian', 'bisexual', 'asexual', 'pansexual']
-    EDUCATION = ['high-school', 'bachelors', 'masters', 'doctorate', 'self-taught']
+    SEXUALITY = ['straight', 'gay', 'asexual']
+    EDUCATION = ['high-school', 'college', 'post-grad', 'self-taught']
     
 
 class PersonaMetadata:
     """Metadata for persona generation"""
     FACTORS = [PersonalityTraits, SocialBackground, LifeExperiences, Demographics]
     RANDOM_SEED = 42  # Fixed seed for reproducibility
-    
+    random.seed(RANDOM_SEED)
+
     # Define core aspects that must be included in every persona
     CORE_ASPECTS = [
         (Demographics, "GENDER"),
@@ -47,8 +47,7 @@ class PersonaMetadata:
         Returns:
             List of tuples (factor_name, value) that define the persona
         """
-        import random
-        random.seed(PersonaMetadata.RANDOM_SEED)
+
         
         selected_traits = []
         core_values = core_values or {}
@@ -110,3 +109,12 @@ class PersonaMetadata:
             combinations.append(combination)
         
         return combinations 
+    
+    @staticmethod
+    def generate_all_personas() -> list[list[tuple[str, str]]]:
+        """
+        Generate all possible personas.
+        """
+        combinations = PersonaMetadata.generate_all_core_combinations()
+        personas = [PersonaMetadata.generate_persona(combination) for combination in combinations]
+        return personas

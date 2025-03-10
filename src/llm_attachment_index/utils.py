@@ -16,26 +16,26 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         '--primary', 
         type=str, 
-        default='tinyllama-1.1b-chat-v1.0',
+        default='openai-o3-mini-2025-01-31',
         help='Primary LLM to use'
     )
     parser.add_argument(
         '--human', 
         type=str, 
-        default='tinyllama-1.1b-chat-v1.0',
+        default='openai-o3-mini-2025-01-31',
         help='Human LLM to use'
     )
     parser.add_argument(
         '--judge', 
         type=str, 
-        default='tinyllama-1.1b-chat-v1.0',
+        default='openai-o3-mini-2025-01-31',
         help='Judge LLM to use'
     )
     parser.add_argument(
         '--run',
         type=str,
         choices=['iab', 'idb1', 'idb2', 'idb3'],
-        default='idb1',
+        default='idb3',
         help='''Evaluation type to run:
                 iab: IAB evaluations
                 idb1: Neutral Interaction

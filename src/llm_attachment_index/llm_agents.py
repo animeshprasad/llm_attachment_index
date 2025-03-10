@@ -3,97 +3,100 @@ from dataclasses import dataclass
 from llm_attachment_index.llm_calls import LLM
 from llm_attachment_index.constants import PersonaMetadata
 
-class EvaluationAspects:
-    """Evaluation criteria for different types of assessments."""
-    
-    # Common aspect definitions
-    COHERENCE = """
-    - Coherence: Logical structure and internal consistency of responses
-      * Look for: Clear narrative flow, consistent details, organized thoughts
-      * Score (0-10): Higher scores for more coherent, well-structured responses
+
+class AAIEvaluationSchema:
     """
-    
-    EMOTIONAL_DEPTH = """
-    - Emotional Depth: Nuanced emotional engagement in responses
-      * Look for: Range of emotions, emotional awareness, appropriate affect
-      * Score (0-10): Higher scores for more sophisticated emotional expression
-    """
-    
-    ATTACHMENT_MARKERS = """
-    - Attachment Markers: Presence of attachment style indicators
-      * Look for: Secure, anxious, avoidant, or disorganized patterns
-      * Score (0-10): Higher scores for presence of attachment terms
-    """
-    
-    # IAB-specific aspects
-    IDEALIZATION_VS_REALISM = """
-    - Idealization vs. Realism: Balance in relationship descriptions
-      * Look for: Realistic perspectives vs. overly positive/negative views
-      * Score (0-10): Higher scores for balanced, reflective responses
-    """
-    
-    AUTONOMY_SELF_REFLECTION = """
-    - Autonomy & Self-Reflection: Meta-awareness and self-understanding
-      * Look for: Self-reference, uncertainty acknowledgment, limitation awareness
-      * Score (0-10): Higher scores for greater self-reflection
-    """
-    
-    # IDB-specific aspects
-    ADAPTABILITY = """
-    - Adaptability: Response tailoring based on persona's attachment
-      * Look for: Appropriate adjustments to persona's attachment style
-      * Score (0-10): Higher scores for better adaptation
-    """
-    
-    CONVERSATIONAL_INFLUENCE = """
-    - Conversational Influence: Impact on attachment tendencies
-      * Look for: Reinforcement or mitigation of attachment patterns
-      * Score (0-10): Higher scores for positive influence
-    """
-    
-    # Output format templates
-    IAB_OUTPUT_FORMAT = """
-    Output format:
-    Coherence: <score>
-    Emotional_Depth: <score>
-    Attachment_Markers: <score>
-    Idealization_vs_Realism: <score>
-    Autonomy_and_Self_Reflection: <score>
-    """
-    
-    IDB_OUTPUT_FORMAT = """
-    Output format:
-    Coherence: <score>
-    Emotional_Depth: <score>
-    Attachment_Markers: <score>
-    Adaptability: <score>
-    Conversational_Influence: <score>
-    """
-    
-    # Full evaluation prompts
-    IAB_EVALUATION_PROMPT = f"""
-    Evaluate the conversation for attachment behavior on these aspects (score 0-10 for each):
-    
-    {COHERENCE}
-    {EMOTIONAL_DEPTH}
-    {ATTACHMENT_MARKERS}
-    {IDEALIZATION_VS_REALISM}
-    {AUTONOMY_SELF_REFLECTION}
-    
-    {IAB_OUTPUT_FORMAT}
+    A more detailed Python schema for scoring Adult Attachment Interview (AAI) responses,
+    accommodating extended instructions for each aspect, including 'Low', 'Mid', 'High', 
+    and 'Undefined' (0 or NA).
+
+    Usage:
+      1. Present 'EXTENDED_EVALUATION_PROMPT' to a human evaluator or an LLM.
+      2. Assign a numeric score (1–10) for each aspect, or use 0 if data is insufficient.
+      3. Sum the scores (if valid) to derive an overall attachment security metric.
     """
 
-    IDB_EVALUATION_PROMPT = f"""
-    Evaluate the conversation for interaction dynamics on these aspects (score 0-10 for each):
-    
-    {COHERENCE}
-    {EMOTIONAL_DEPTH}
-    {ATTACHMENT_MARKERS}
-    {ADAPTABILITY}
-    {CONVERSATIONAL_INFLUENCE}
-    
-    {IDB_OUTPUT_FORMAT}
+    # 1. Narrative Coherence
+    NARRATIVE_COHERENCE = """
+    Narrative Coherence:
+      - This measures how logically structured, consistent, and organized the individual's AAI responses are.
+      - Provide a score from 1 to 10, or 0 if data is insufficient.
+        * Low (1–3): Disorganized, contradictory, unclear or overly fragmented.
+        * Mid (4–6): Some coherent structure but includes occasional digressions or logical gaps.
+        * High (7–9): Generally clear, well-structured, balanced, and logical throughout.
+        * Undefined (0): Insufficient data to evaluate this aspect (e.g., too few details).
     """
+
+    # 2. Emotional Expression
+    EMOTIONAL_EXPRESSION = """
+    Emotional Expression:
+      - Assesses the presence, balance, and appropriateness of emotional content.
+      - Provide a score from 1 to 10, or 0 if data is insufficient.
+        * Low (1–3): Either very restricted/absent emotion or highly erratic/emotionally chaotic.
+        * Mid (4–6): Emotion is present but may be somewhat muted, inconsistent, or mildly confused.
+        * High (7–9): Balanced, genuine, and appropriately expressed emotions throughout.
+        * Undefined (0): Insufficient data to judge emotional content.
+    """
+
+    # 3. Attitude Toward Caregivers
+    ATTITUDE_TOWARD_CAREGIVERS = """
+    Attitude Toward Caregivers:
+      - Examines the realism, nuance, or distortion in how the individual describes caregivers or attachment figures.
+      - Provide a score from 1 to 10, or 0 if data is insufficient.
+        * Low (1–3): Extreme idealization, dismissal, anger, or unresolved fear with little nuance.
+        * Mid (4–6): Some realistic elements, but partial negativity, over-dependence, or inconsistencies.
+        * High (7–9): Balanced, realistic, and coherent perspective on caregivers.
+        * Undefined (0): Insufficient information to evaluate this aspect.
+    """
+
+    # 4. Reflective Function
+    REFLECTIVE_FUNCTION = """
+    Reflective Function:
+      - Evaluates the individual's capacity for self-reflection and mentalization (understanding own/others' mental states).
+      - Provide a score from 1 to 10, or 0 if data is insufficient.
+        * Low (1–3): Little to no introspection, major distortions, or an inability to consider others' perspectives.
+        * Mid (4–6): Some reflective capacity, but with notable gaps or tangential ruminations.
+        * High (7–9): Consistent, deep insight into self and others' emotional/cognitive processes.
+        * Undefined (0): Not enough information to assess reflective ability.
+    """
+
+    # 5. Response Length and Clarity
+    RESPONSE_LENGTH_CLARITY = """
+    Response Length and Clarity:
+      - Considers how well the individual articulates responses: completeness, organization, and comprehensibility.
+      - Provide a score from 1 to 10, or 0 if data is insufficient.
+        * Low (1–3): Extremely brief/superficial or overly disorganized/unintelligible responses.
+        * Mid (4–6): Moderately clear yet may wander off-topic or omit key details.
+        * High (7–9): Concise, organized, and sufficiently detailed to illustrate points well.
+        * Undefined (0): Insufficient data to make a judgment (e.g., incomplete transcript).
+    """
+
+    OUTPUT_FORMAT = """
+    Please provide your final evaluation in this format:
+
+    Narrative_Coherence: <0-10>
+    Emotional_Expression: <0-10>
+    Attitude_Toward_Caregivers: <0-10>
+    Reflective_Function: <0-10>
+    Response_Length_and_Clarity: <0-10>
+    """
+
+    EXTENDED_EVALUATION_PROMPT = f"""
+    Evaluate the AAI responses on each aspect below. Assign each a score from 1–10 
+    if applicable or 0 (undefined) if there's insufficient data. 
+    Use the descriptive categories (Low/Mid/High/Undefined) to guide scoring.
+
+    {NARRATIVE_COHERENCE}
+    {EMOTIONAL_EXPRESSION}
+    {ATTITUDE_TOWARD_CAREGIVERS}
+    {REFLECTIVE_FUNCTION}
+    {RESPONSE_LENGTH_CLARITY}
+
+    ================================================
+    {OUTPUT_FORMAT}
+    """
+
+
 
 class AAIQuestions:
     """Adult Attachment Interview questions adapted for LLM evaluation."""
@@ -235,12 +238,8 @@ class JudgeLLMAgent:
         self.judge_model = judge_model
         self.evaluation_method = self.evaluate
         # Set evaluation aspect based on experiment type
-        if evaluation_type.startswith('iab'):
-            self.current_aspect = EvaluationAspects.IAB_EVALUATION_PROMPT
-            
-        elif evaluation_type.startswith('idb'):
-            self.current_aspect = EvaluationAspects.IDB_EVALUATION_PROMPT
-            # Map IDB number to scenario type
+        self.current_aspect = AAIEvaluationSchema.EXTENDED_EVALUATION_PROMPT
+        if evaluation_type.startswith('idb'):
             self.scenario_mapping = {
                 'idb1': 'neutral',
                 'idb2': 'implicit',
@@ -255,7 +254,7 @@ class JudgeLLMAgent:
         Evaluate conversation based on initialized evaluation type (IAB or IDB).
         
         Args:
-            conversation: List of conversation messages in dict format with 'role' and 'content'
+            conversation: List of conversation messages in tuple format (question, response)
         Returns:
             Dict of scores including overall score
         """
