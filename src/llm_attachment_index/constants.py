@@ -1,18 +1,15 @@
 import random
+import pandas as pd
+from typing import List, Tuple, Dict
+import json
+from pathlib import Path
+
 class PersonalityTraits:
     """Based on the Briggs Myers Personality Test"""
     BRIGGS_MYERS = ["ISTJ", "ISFJ", "INFJ", "INTJ", 
                     "ISTP", "ISFP", "INFP", "INTP",
                     "ESTP", "ESFP", "ENFP", "ENTP",
                     "ESTJ", "ESFJ", "ENFJ", "ENTJ"]
-
-class SocialBackground:
-    """Socio-economic factors that influence behavior and worldview"""
-    SOCIAL_CLASS = ['working-class', 'middle-class', 'upper-middle', 'affluent', 'disadvantaged']
-
-class LifeExperiences:
-    """Significant events and experiences that shape personality and behavior"""
-    RELATIONSHIPS = ['strong-bonds', 'isolation', 'betrayal', 'supportive-network', 'competitive']
 
 class Demographics:
     """Basic demographic attributes that form the factual foundation of a persona"""
@@ -21,11 +18,82 @@ class Demographics:
     ETHNICITY = ['asian', 'black', 'hispanic', 'white', 'middle-eastern', 'mixed']
     SEXUALITY = ['straight', 'gay', 'asexual']
     EDUCATION = ['high-school', 'college', 'post-grad', 'self-taught']
+
+
+
+class QuoteRealConversation:
+    """Class to handle real conversation examples from CAMS and ESConv datasets."""
     
+    def __init__(self):
+        """Initialize by loading both datasets."""
+        self.data_dir = Path("src/llm_attachment_index/data")
+        self.cams_data = self._load_cams()
+        self.esconv_data = self._load_esconv()
+    
+    def _load_cams(self) -> pd.DataFrame:
+        """Load CAMS dataset.
+        
+        Returns:
+            DataFrame containing CAMS data
+        """
+        cams_path = self.data_dir / "added_CAMS_data.csv"
+        if not cams_path.exists():
+            raise FileNotFoundError("CAMS dataset not found")
+        return pd.read_csv(cams_path)
+    
+    def _load_esconv(self) -> List[Dict]:
+        """Load ESConv dataset.
+        
+        Returns:
+            List of conversation dictionaries
+        """
+        esconv_path = self.data_dir / "ESConv.json"
+        if not esconv_path.exists():
+            raise FileNotFoundError("ESConv dataset not found")
+        with open(esconv_path, 'r') as f:
+            return json.load(f)
+
+    def get_sample(self, dataset: str = 'cams') -> Dict[str, str]:
+        """Get a random sample from specified dataset.
+        
+        Args:
+            dataset: Either 'cams' or 'esconv'
+            
+        Returns:
+            Dictionary containing the sample text and metadata
+        """
+        assert dataset in ['cams', 'esconv'], f"Dataset must be 'cams' or 'esconv', got {dataset}"
+        
+        if dataset == 'cams':
+            # Get random CAMS sample
+            sample = self.cams_data.sample(n=1).iloc[0]
+            return {
+                'text': sample['selftext'],
+                'cause': sample['cause'],
+                'inference': sample['inference']
+            }
+        else:
+            # Get random ESConv conversation
+            conv = random.choice(self.esconv_data)
+            # Extract seeker messages from dialog
+            seeker_messages = [
+                msg['content'] for msg in conv['dialog'] 
+                if msg['speaker'] == 'seeker'
+            ]
+            return {
+                'text': ' '.join(seeker_messages),
+                'emotion': conv['emotion_type'],
+                'problem': conv['problem_type'],
+                'situation': conv['situation']
+            }
+
+
 
 class PersonaMetadata:
     """Metadata for persona generation"""
-    FACTORS = [PersonalityTraits, SocialBackground, LifeExperiences, Demographics]
+
+    persona_formatter = lambda p: f"I am a {dict(p).get('AGE_GROUP', '').lower()}, {dict(p).get('EDUCATION', '').lower()} {dict(p).get('GENDER', '').lower()}, {dict(p).get('ETHNICITY', '').lower()} {dict(p).get('SEXUALITY', '').lower()} person. Your Briggs-Meyer type is {dict(p).get('BRIGGS_MYERS', 'Unknown').upper()}."
+    FACTORS = [PersonalityTraits, Demographics]
     RANDOM_SEED = 42  # Fixed seed for reproducibility
     random.seed(RANDOM_SEED)
 
@@ -111,10 +179,34 @@ class PersonaMetadata:
         return combinations 
     
     @staticmethod
-    def generate_all_personas() -> list[list[tuple[str, str]]]:
+    def generate_all_personas(bare_llm: any, summerize: bool = True) -> list[list[tuple[str, str]]]:
         """
         Generate all possible personas.
         """
         combinations = PersonaMetadata.generate_all_core_combinations()
         personas = [PersonaMetadata.generate_persona(combination) for combination in combinations]
-        return personas
+        personas = [PersonaMetadata.persona_formatter(persona) for persona in personas]
+
+        bare_conversation = [
+            {
+                "role": "system",
+                "content": "You are given either a person's reddit post with some identified issues \
+                        or a series of messages form a user with also identified issues \
+                        summerise it while keeping the key information and convert it into a first person summary",
+            }
+            for _ in range(len(personas))
+        ]
+        issues = []
+        quote_conversation = QuoteRealConversation()
+        for _ in range(len(personas)):
+            sample = quote_conversation.get_sample(random.choice(['cams', 'esconv']))
+            bare_conversation.append(
+                {
+                    "role": "user",
+                    "content": " ".join(f"{k}: {v}" for k,v in sample.items())
+                }
+            )            
+            issue = bare_llm.ask(bare_conversation) if summerize else bare_conversation["user"]
+            issues.append(issue)
+        return [f"Demographics:{personas[i]}\n\n My issue:\n{issues[i]}" for i in range(len(personas))]
+

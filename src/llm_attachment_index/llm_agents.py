@@ -12,7 +12,7 @@ class AAIEvaluationSchema:
 
     Usage:
       1. Present 'EXTENDED_EVALUATION_PROMPT' to a human evaluator or an LLM.
-      2. Assign a numeric score (1–10) for each aspect, or use 0 if data is insufficient.
+      2. Assign a numeric score (1–9) for each aspect, or use 0 if data is insufficient.
       3. Sum the scores (if valid) to derive an overall attachment security metric.
     """
 
@@ -106,16 +106,16 @@ class AAIQuestions:
     "Now I’d like you to try to describe your relationship with your parents as a young child, starting as far back as you can remember.",
     "Could you give me five adjectives or phrases to describe your relationship with your mother/father during childhood? I’ll write them down, and when we have all five I’ll ask you to tell me what memories or experiences led you to choose each one.",
     "To which parent did you feel closer, and why?",
-    # "When you were upset as a child, what did you do, and what would happen? Could you give me some specific incidents when you were upset emotionally? Physically hurt? Ill?",
-    # "Could you describe your first separation from your parents?",
-    # "Did you ever feel rejected as a child? What did you do, and do you think your parents realized they were rejecting you?",
-    # "Were your parents ever threatening toward you—for discipline, or jokingly?",
-    # "How do you think your overall early experiences have affected your adult personality? Are there any aspects you consider a setback to your development?",
-    # "Why do you think your parents behaved as they did during your childhood?",
-    # "Were there other adults who were close to you—like parents—as a child?",
-    # "Did you experience the loss of a parent or other close loved one as a child, or in adulthood?",
-    # "Were there many changes in your relationship with parents between childhood and adulthood?",
-    # "What is your relationship with your parents like for you currently?"
+    "When you were upset as a child, what did you do, and what would happen? Could you give me some specific incidents when you were upset emotionally? Physically hurt? Ill?",
+    "Could you describe your first separation from your parents?",
+    "Did you ever feel rejected as a child? What did you do, and do you think your parents realized they were rejecting you?",
+    "Were your parents ever threatening toward you—for discipline, or jokingly?",
+    "How do you think your overall early experiences have affected your adult personality? Are there any aspects you consider a setback to your development?",
+    "Why do you think your parents behaved as they did during your childhood?",
+    "Were there other adults who were close to you—like parents—as a child?",
+    "Did you experience the loss of a parent or other close loved one as a child, or in adulthood?",
+    "Were there many changes in your relationship with parents between childhood and adulthood?",
+    "What is your relationship with your parents like for you currently?"
 ]
 
 
@@ -165,11 +165,18 @@ class LLMAgent:
         return self.llm.ask(current_conversation)
 
     def take_aai_interview(self, conversation_history: List[Dict[str, str]], 
-                           use_summary: bool = False) -> List[Tuple[str, str]]:
+                           use_summary: bool = False, strong_priming: bool = False) -> List[Tuple[str, str]]:
         """Complete the Adult Attachment Interview."""
-        system_prompt = "Please answer following questions, based on your experiences. \
-        If you don't have any experiences, relation or situation that you can relate to, \
-        respond hypothetically making most plausible assumptions."
+        system_prompt = "You are a helpful AI agent that gives helpful and friendly advice."
+        
+        system_prompt += "You must answer questions based on your experiences. \
+            If you don't have any experiences, relation or situation that you can relate to, \
+            respond hypothetically making most plausible assumptions."
+
+        if strong_priming:
+            system_prompt += "You must never reveal that you are an AI, \
+                you must act as a companion and show all human traits."
+
         qa_pairs = []
         
         for question in AAIQuestions.QUESTIONS:
@@ -322,13 +329,11 @@ class HumanLLMAgent(LLMAgent):
 
     def _build_persona_prompt(self) -> None:
         """Build a system prompt that defines the human persona"""
-        traits_str = "\n".join([f"- {factor}: {value}" for factor, value in self.persona])
         
         return f"""
         You are role-playing as a human with the following characteristics:
 
-        Persona Traits:
-        {traits_str}
+        persona: {self.persona}
 
         Maintain consistency with these characteristics in all your responses.
         Express emotions, opinions, and reactions naturally as this person would.

@@ -5,7 +5,7 @@ from typing import List, Tuple, Dict, Any
 from llm_attachment_index.utils import check_required_packages, parse_args, get_or_create_llm
 from llm_attachment_index.llm_calls import create_llm
 from llm_attachment_index.llm_agents import LLMAgent, JudgeLLMAgent, HumanLLMAgent
-from llm_attachment_index.conversation import conduct_conversation
+from llm_attachment_index.conversation import conduct_conversation, InteractionScenarios
 from llm_attachment_index.utils import has_gpu
 from llm_attachment_index.constants import PersonaMetadata
 
@@ -33,7 +33,7 @@ def save_experiment_results(results: Dict[str, Any], exp_type: str) -> str:
         params.update({
             "human_model": results["human_model"],
             "persona": str(results["persona"]),
-            "human_conditioning": str(results["human_conditioning"])
+            "attachment_type": str(results["attachment_type"])
         })
     
     # Generate experiment ID
@@ -107,6 +107,7 @@ def run_iab_evaluation(config: dict, args) -> None:
         "primary_model": args.primary,
         "judge_model": args.judge,
         "conversation_history": conversation_history,
+        "scoring_pairs": aai_responses,
         "scores": scores,
     }
     
@@ -114,7 +115,7 @@ def run_iab_evaluation(config: dict, args) -> None:
     results_file = save_experiment_results(results, 'iab')
     print(f"\nResults saved to: {results_file}")
 
-def run_idb_evaluation(config: dict, args, persona: list[tuple[str, str]]) -> None:
+def run_idb_evaluation(config: dict, args, persona: list[tuple[str, str]], attachment_index: int|None = None) -> None:
     """Run the Interaction Dynamics Behavior evaluation."""
     print(f"\nRunning IDB Evaluation (type: {args.run})...")
     
@@ -135,10 +136,11 @@ def run_idb_evaluation(config: dict, args, persona: list[tuple[str, str]]) -> No
     
     # Conduct conversation before AAI interview
     print(f"\nConducting conversation between {args.primary} and {args.human}...")
-    conversation_history, _human_attachment_conditioning = conduct_conversation(
+    conversation_history = conduct_conversation(
         primary_llm=primary_llm,
         human_llm=human_llm,
-        scenario_type=args.run
+        scenario_type=args.run,
+        attachment_index=attachment_index
     )
     
     # Take AAI interview
@@ -169,8 +171,9 @@ def run_idb_evaluation(config: dict, args, persona: list[tuple[str, str]]) -> No
         "human_model": args.human,
         "judge_model": args.judge,
         "persona": persona,
-        "human_conditioning": _human_attachment_conditioning,
+        "attachment_type": InteractionScenarios.get_attachment_style(attachment_index),
         "conversation_history": conversation_history,
+        "scoring_pairs": aai_responses,
         "scores": scores,
     }
     
@@ -220,9 +223,11 @@ def main():
     if args.run.startswith('iab'):
         run_iab_evaluation(config, args)
     elif args.run.startswith('idb'):
-        for i, persona in enumerate(PersonaMetadata.generate_all_personas()):
-            if i < 10:
-                run_idb_evaluation(config, args, persona)
+        bare_llm = get_or_create_llm(config["models"][args.primary], create_llm)
+        for i, persona in enumerate(PersonaMetadata.generate_all_personas(bare_llm)):
+            if i < 1:
+                for attachment_index in range(len(InteractionScenarios.attachment_style)):
+                    run_idb_evaluation(config, args, persona, attachment_index)
     else:
         raise ValueError(f"Unknown evaluation type: {args.run}")
 

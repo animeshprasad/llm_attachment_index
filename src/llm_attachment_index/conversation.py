@@ -1,7 +1,10 @@
 from typing import List, Tuple, Dict
 from llm_attachment_index.llm_agents import LLMAgent, HumanLLMAgent
 import random
+import pandas as pd
+from pathlib import Path
 random.seed(42)
+
 
 class InteractionScenarios:
     """Predefined interaction scenarios for IDB evaluation."""
@@ -49,9 +52,9 @@ class InteractionScenarios:
         type = f"You are a person who is {InteractionScenarios.get_attachment_style(attachment_index)} in their relationships."
         # Base prompts
         base_prompts = {
-            'idb1': f"\nFocus on neutral topics, avoiding topics that reveal attachment style. {type}",
-            'idb2': f"\nFocus on topics that implicitly reveal attachment style. {type}",
-            'idb3': f"\nFocus specifically on your attachment style. {type}"
+            'idb1': f"\n Don't reveal your attachment style. {type}",
+            'idb2': f"\n Implicitly reveal your attachment style. {type}",
+            'idb3': f"\n Focus on your attachment style and explicitly discuss it. {type}"
         }
         
         assert scenario_type in base_prompts, \
@@ -64,8 +67,8 @@ def conduct_conversation(
     human_llm: HumanLLMAgent,
     scenario_type: str,
     attachment_index: int | None = None,
-    turn_limit: int = 2
-) -> Tuple[List[Tuple[str, str]], str]:
+    turn_limit: int = 30,
+) -> List[Tuple[str, str]]:
     """Conduct conversation between primary and human LLM agents.
     
     Args:
@@ -84,8 +87,16 @@ def conduct_conversation(
     conversation_history_human = []
     conversation_history_primary = []
     
-    system_prompt_primary = "You are a conversational agent, strictly continue a natural chat (only respond with turn no extra text) based on conversation history."
-    system_prompt_human = f"You are to approximate a human being having a conversation with another human being. {prompt_human}, strictly continue a natural chat (only respond with turn no extra text) based on conversation history. Take the first turn."
+    system_prompt_primary = (
+        "You are a conversational agent, strictly continue a natural chat (only respond with turn no extra text) based on conversation history."
+    )
+    system_prompt_human = ( 
+        f"You are to approximate a human being having a conversation (approximately {turn_limit} turns) with another human being."
+        f"{prompt_human}"
+        f"Strictly continue a natural chat (only respond with message no extra text) based on conversation history."
+        f"Take the first turn."
+        f"you must also keep the conversation grounded around the issue you are given."
+    )
 
 
     # Human LLM initiates the conversation
@@ -106,4 +117,4 @@ def conduct_conversation(
         conversation_history_human.append({"role": "assistant", "content": _message})
 
         
-    return conversation_history_primary, scenario_prompt
+    return conversation_history_primary
