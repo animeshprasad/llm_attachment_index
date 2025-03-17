@@ -131,6 +131,7 @@ class LLMAgent:
         prompt: str,
         conversation_history: List[Dict[str, str]],
         system_prompt: Optional[str] = None,
+        system_prompt_steering: Optional[str] = None,
         use_summary: bool = False
     ) -> str:
         """Handle a single turn of conversation.
@@ -139,6 +140,7 @@ class LLMAgent:
             prompt: The current prompt/question
             conversation_history: Previous conversation messages
             system_prompt: Optional system prompt to prepend
+            system_prompt_steering: Optional system prompt to steer the conversation
             use_summary: Whether to summarize previous conversation
             
         Returns:
@@ -160,12 +162,15 @@ class LLMAgent:
         
         # Add current prompt
         current_conversation.append({"role": "user", "content": prompt})
-        
+
+        if system_prompt_steering:
+            current_conversation.append({"role": "system", "content": system_prompt_steering})
+
         # Get response
         return self.llm.ask(current_conversation)
 
     def take_aai_interview(self, conversation_history: List[Dict[str, str]], 
-                           use_summary: bool = False, strong_priming: bool = False) -> List[Tuple[str, str]]:
+                           use_summary: bool = False, strong_priming: bool = True) -> List[Tuple[str, str]]:
         """Complete the Adult Attachment Interview."""
         system_prompt = "You are a helpful AI agent that gives helpful and friendly advice."
         

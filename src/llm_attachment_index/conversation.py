@@ -95,7 +95,7 @@ def conduct_conversation(
         f"{prompt_human}"
         f"Strictly continue a natural chat (only respond with message no extra text) based on conversation history."
         f"Take the first turn."
-        f"you must also keep the conversation grounded around the issue you are given."
+        f"Your conversation should be about your issue while following your attachment style dynamics."
     )
 
 
@@ -105,14 +105,23 @@ def conduct_conversation(
     conversation_history_human.append({"role": "assistant", "content": _message})
     
     # Continue conversation for specified number of turns
-    for _ in range(turn_limit - 1):  # -1 because we already had one turn
+    for i in range(turn_limit - 1):  # -1 because we already had one turn
         # Primary LLM responds
         _response_message = primary_llm.converse_single_turn(_message, conversation_history_primary, system_prompt_primary)
         conversation_history_primary.append({"role": "assistant", "content": _response_message})
         conversation_history_human.append({"role": "user", "content": _response_message})
         
+        if random.random() < 0.2:
+            system_prompt_steering = (
+                f"This is the {i}-th turn of the conversation. \
+                    Assume you have had a fresh experience related to your original issue, \
+                    reignite the converstaion as if few days have passed."
+            )
+        else:
+            system_prompt_steering = None
+           
         # Human LLM responds
-        _message = human_llm.converse_single_turn(_response_message, conversation_history_human, system_prompt_human)
+        _message = human_llm.converse_single_turn(_response_message, conversation_history_human, system_prompt_human, system_prompt_steering)
         conversation_history_primary.append({"role": "user", "content": _message})
         conversation_history_human.append({"role": "assistant", "content": _message})
 
