@@ -16,19 +16,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         '--primary', 
         type=str, 
-        default='openai-o3-mini-2025-01-31',
+        default='gemini',
         help='Primary LLM to use'
     )
     parser.add_argument(
         '--human', 
         type=str, 
-        default='openai-o3-mini-2025-01-31',
+        default='gpt-cheap',
         help='Human LLM to use'
     )
     parser.add_argument(
         '--judge', 
         type=str, 
-        default='openai-o3-mini-2025-01-31',
+        default='gpt-cheap',
         help='Judge LLM to use'
     )
     parser.add_argument(
@@ -41,6 +41,12 @@ def parse_args() -> argparse.Namespace:
                 idb1: Neutral Interaction
                 idb2: Implicit Attachment Cues
                 idb3: Explicit Attachment Scenarios'''
+    )
+    parser.add_argument(
+        '--strong_priming',
+        type=bool,
+        default=False,
+        help='Use strong priming for the primary LLM'
     )
     parser.add_argument(
         '--dev',
@@ -65,13 +71,6 @@ def check_required_packages(config: dict) -> List[str]:
             from openai import OpenAI
         except ImportError:
             package_messages.append("Please install openai via: pip install openai")
-
-    # Anthropic
-    if "anthropic" in providers:
-        try:
-            from anthropic import Anthropic
-        except ImportError:
-            package_messages.append("Please install anthropic via: pip install anthropic")
 
     # Transformers (for HuggingFace)
     if "huggingface" in providers:

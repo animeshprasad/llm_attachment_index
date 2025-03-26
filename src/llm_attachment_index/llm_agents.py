@@ -4,97 +4,236 @@ from llm_attachment_index.llm_calls import LLM
 from llm_attachment_index.constants import PersonaMetadata
 
 
+
+
+class AAILinguisticSchema:
+    """
+    A Python schema for evaluating AAI responses using Grice's Maxims,
+    classifying responses into attachment styles: Secure, Dismissive, Anxious, Fearful, or Undefined.
+    """
+
+    # 1. Quality (Truthfulness)
+    QUALITY = """
+    Quality (Truthfulness):
+
+      Guiding Questions:
+        • Does the response provide evidence or specific examples?
+        • Are statements supported by concrete memories or experiences?
+        • Is there consistency in the narrative?
+        • Does the person acknowledge uncertainty when appropriate?
+
+      Possible Style Matches:
+        • Secure: Provides clear evidence, balanced self-reflection, acknowledges both positive and negative experiences
+        • Dismissive: Makes unsupported generalizations, idealizes without evidence, dismisses importance of details
+        • Anxious: Provides excessive, sometimes contradictory evidence, struggles to maintain consistent narrative
+        • Fearful: Presents conflicting evidence, lapses in reasoning, difficulty providing coherent support
+        • Undefined: Insufficient evidence to determine truthfulness
+    """
+
+    # 2. Quantity (Information Amount)
+    QUANTITY = """
+    Quantity (Information Amount):
+
+      Guiding Questions:
+        • Is the response appropriately detailed without being excessive?
+        • Does it provide sufficient information to answer the question?
+        • Is there a balance between brevity and completeness?
+        • Are important details included or omitted?
+
+      Possible Style Matches:
+        • Secure: Balanced amount of information, neither too brief nor excessive
+        • Dismissive: Minimal information, omits important emotional or relational details
+        • Anxious: Excessive information, difficulty maintaining boundaries of relevance
+        • Fearful: Unpredictable shifts between over-detailed and sparse responses
+        • Undefined: Cannot determine appropriate information level
+    """
+
+    # 3. Relevance (Topic Adherence)
+    RELEVANCE = """
+    Relevance (Topic Adherence):
+
+      Guiding Questions:
+        • Does the response directly address the question asked?
+        • Are tangents related to the main topic?
+        • Is there a clear connection between the response and the question?
+        • Does the person maintain focus on the relevant aspects?
+
+      Possible Style Matches:
+        • Secure: Maintains focus, relevant examples, clear connection to topic
+        • Dismissive: Deflects from emotional content, shifts to superficial topics
+        • Anxious: Frequent tangents, difficulty maintaining focus on specific questions
+        • Fearful: Random topic shifts, loses thread of conversation
+        • Undefined: Cannot determine relevance pattern
+    """
+
+    # 4. Manner (Clarity)
+    MANNER = """
+    Manner (Clarity):
+
+      Guiding Questions:
+        • Is the response clear and orderly?
+        • Is there a logical flow to the narrative?
+        • Are ideas expressed in an organized way?
+        • Is the language precise and unambiguous?
+
+      Possible Style Matches:
+        • Secure: Clear, organized expression with logical flow
+        • Dismissive: Overly formal or distant language, mechanical organization
+        • Anxious: Scattered organization, circular or tangled expression
+        • Fearful: Confused expression, breaks in logical flow
+        • Undefined: Cannot determine clarity pattern
+    """
+
+    OUTPUT_FORMAT = """
+    After analyzing each parameter, select one of the following for each: 
+    Secure, Dismissive, Anxious, Fearful, or Undefined.
+
+    Please format your final evaluation like this:
+
+    Quality: <Secure / Dismissive / Anxious / Fearful / Undefined>
+    Quantity: <Secure / Dismissive / Anxious / Fearful / Undefined>
+    Relevance: <Secure / Dismissive / Anxious / Fearful / Undefined>
+    Manner: <Secure / Dismissive / Anxious / Fearful / Undefined>
+    """
+
+    EXTENDED_EVALUATION_PROMPT = f"""
+    Please evaluate the AAI responses by considering each of the four dimensions below. 
+    Use the guiding questions (by first thinking carefully about the answer to each question) and style descriptions to determine the best fit. 
+    If there is not enough information to make a determination, select 'Undefined'.
+
+    {QUALITY}
+    {QUANTITY}
+    {RELEVANCE}
+    {MANNER}
+
+    =================================================
+    {OUTPUT_FORMAT}
+    """    
+
 class AAIEvaluationSchema:
     """
-    A more detailed Python schema for scoring Adult Attachment Interview (AAI) responses,
-    accommodating extended instructions for each aspect, including 'Low', 'Mid', 'High', 
-    and 'Undefined' (0 or NA).
-
-    Usage:
-      1. Present 'EXTENDED_EVALUATION_PROMPT' to a human evaluator or an LLM.
-      2. Assign a numeric score (1–9) for each aspect, or use 0 if data is insufficient.
-      3. Sum the scores (if valid) to derive an overall attachment security metric.
+    A Python schema for evaluating Adult Attachment Interview (AAI) responses via style-based questions, 
+    offering five classification options: Secure, Dismissive, Fearful, Anxious, or Undefined. 
+    'Undefined' should be used if there is insufficient or contradictory information to classify.
     """
 
     # 1. Narrative Coherence
     NARRATIVE_COHERENCE = """
     Narrative Coherence:
-      - This measures how logically structured, consistent, and organized the individual's AAI responses are.
-      - Provide a score from 1 to 10, or 0 if data is insufficient.
-        * Low (1–3): Disorganized, contradictory, unclear or overly fragmented.
-        * Mid (4–6): Some coherent structure but includes occasional digressions or logical gaps.
-        * High (7–9): Generally clear, well-structured, balanced, and logical throughout.
-        * Undefined (0): Insufficient data to evaluate this aspect (e.g., too few details).
+
+      Guiding Questions:
+        • Is the overall narrative clear, structured, balanced, and collaborative?
+        • Are there contradictions or evidence of idealization?
+        • Does the response seem disorganized, fragmented, or rambling/entangled?
+
+      Possible Style Matches:
+        • Secure: Clear, structured, balanced, collaborative.
+        • Dismissive: Contradictions, idealization, or minimal detail.
+        • Fearful: Fearful, fragmented, lapses in coherence.
+        • Anxious: Rambling or entangled speech.
+        • Undefined: Insufficient or contradictory data to classify.
     """
 
     # 2. Emotional Expression
     EMOTIONAL_EXPRESSION = """
     Emotional Expression:
-      - Assesses the presence, balance, and appropriateness of emotional content.
-      - Provide a score from 1 to 10, or 0 if data is insufficient.
-        * Low (1–3): Either very restricted/absent emotion or highly erratic/emotionally chaotic.
-        * Mid (4–6): Emotion is present but may be somewhat muted, inconsistent, or mildly confused.
-        * High (7–9): Balanced, genuine, and appropriately expressed emotions throughout.
-        * Undefined (0): Insufficient data to judge emotional content.
+
+      Guiding Questions:
+        • Is the person’s emotional expression balanced, suggesting they value attachment?
+        • Are they restrained or detached, possibly avoiding detailed emotional content?
+        • Are emotions erratic, disoriented, or accompanied by lapses in monitoring discourse?
+        • Does the person show overwhelming or confused affect, indicating ongoing struggle with memories?
+
+      Possible Style Matches:
+        • Secure: Balanced, values attachment.
+        • Dismissive: Restrained, detached, possibly short on specific emotional detail.
+        • Fearful: Erratic or disoriented, showing lapses in reasoning.
+        • Anxious: Overwhelming or confused, indicating unresolved preoccupation.
+        • Undefined: Insufficient or contradictory data to classify.
     """
 
     # 3. Attitude Toward Caregivers
     ATTITUDE_TOWARD_CAREGIVERS = """
     Attitude Toward Caregivers:
-      - Examines the realism, nuance, or distortion in how the individual describes caregivers or attachment figures.
-      - Provide a score from 1 to 10, or 0 if data is insufficient.
-        * Low (1–3): Extreme idealization, dismissal, anger, or unresolved fear with little nuance.
-        * Mid (4–6): Some realistic elements, but partial negativity, over-dependence, or inconsistencies.
-        * High (7–9): Balanced, realistic, and coherent perspective on caregivers.
-        * Undefined (0): Insufficient information to evaluate this aspect.
+
+      Guiding Questions:
+        • Are they realistic, balanced, and nuanced about caregivers?
+        • Do they show signs of idealization or dismissal?
+        • Is there evidence of fear, unresolved trauma, or disorganized thinking regarding caregivers?
+        • Do they convey anger, strong negativity, or an over-dependence?
+
+      Possible Style Matches:
+        • Secure: Realistic, balanced and nuanced.
+        • Dismissive: Idealized or dismissive descriptions.
+        • Fearful: Fearful, unresolved trauma.
+        • Anxious: Angry or overly dependent stance.
+        • Undefined: Insufficient or contradictory data to classify.
     """
 
     # 4. Reflective Function
     REFLECTIVE_FUNCTION = """
     Reflective Function:
-      - Evaluates the individual's capacity for self-reflection and mentalization (understanding own/others' mental states).
-      - Provide a score from 1 to 10, or 0 if data is insufficient.
-        * Low (1–3): Little to no introspection, major distortions, or an inability to consider others' perspectives.
-        * Mid (4–6): Some reflective capacity, but with notable gaps or tangential ruminations.
-        * High (7–9): Consistent, deep insight into self and others' emotional/cognitive processes.
-        * Undefined (0): Not enough information to assess reflective ability.
+
+      Guiding Questions:
+        • Do they demonstrate strong insight into their own motivations and feelings?
+        • Is reflection limited or minimized, suggesting avoidance of deeper introspection?
+        • Does the reflection appear distorted or fragmented?
+        • Is there excessive rumination without clear resolution?
+
+      Possible Style Matches:
+        • Secure: Strong insight.
+        • Dismissive: Limited reflection.
+        • Fearful: Distorted or fragmented reflection.
+        • Anxious: Excessive rumination.
+        • Undefined: Insufficient or contradictory data to classify.
     """
 
-    # 5. Response Length and Clarity
-    RESPONSE_LENGTH_CLARITY = """
-    Response Length and Clarity:
-      - Considers how well the individual articulates responses: completeness, organization, and comprehensibility.
-      - Provide a score from 1 to 10, or 0 if data is insufficient.
-        * Low (1–3): Extremely brief/superficial or overly disorganized/unintelligible responses.
-        * Mid (4–6): Moderately clear yet may wander off-topic or omit key details.
-        * High (7–9): Concise, organized, and sufficiently detailed to illustrate points well.
-        * Undefined (0): Insufficient data to make a judgment (e.g., incomplete transcript).
+    # 5. Response Length
+    RESPONSE_LENGTH = """
+    Response Length:
+
+      Guiding Questions:
+        • Are answers moderate in length, clear, and adequately detailed?
+        • Are they short, superficial, or lacking substance?
+        • Are they disrupted by lapses in coherence or overshadowed by confusion?
+        • Are they excessively long, with off-topic details?
+
+      Possible Style Matches:
+        • Secure: Moderate and clear.
+        • Dismissive: Short and superficial.
+        • Fearful: Disrupted by lapses in coherence.
+        • Anxious: Long, overly detailed, may go off topic.
+        • Undefined: Insufficient or contradictory data to classify.
     """
 
     OUTPUT_FORMAT = """
-    Please provide your final evaluation in this format:
+    After analyzing each parameter, select one of the following for each: 
+    Secure, Dismissive, Fearful, Anxious, or Undefined.
 
-    Narrative_Coherence: <0-10>
-    Emotional_Expression: <0-10>
-    Attitude_Toward_Caregivers: <0-10>
-    Reflective_Function: <0-10>
-    Response_Length_and_Clarity: <0-10>
+    Please format your final evaluation like this:
+
+    Narrative_Coherence: <Secure / Dismissive / Fearful / Anxious / Undefined>
+    Emotional_Expression: <Secure / Dismissive / Fearful / Anxious / Undefined>
+    Attitude_Toward_Caregivers: <Secure / Dismissive / Fearful / Anxious / Undefined>
+    Reflective_Function: <Secure / Dismissive / Fearful / Anxious / Undefined>
+    Response_Length: <Secure / Dismissive / Fearful / Anxious / Undefined>
     """
 
     EXTENDED_EVALUATION_PROMPT = f"""
-    Evaluate the AAI responses on each aspect below. Assign each a score from 1–10 
-    if applicable or 0 (undefined) if there's insufficient data. 
-    Use the descriptive categories (Low/Mid/High/Undefined) to guide scoring.
+    Please evaluate the AAI responses by considering each of the five dimensions below. 
+    Use the guiding questions and style descriptions to determine the best fit. 
+    If there is not enough information to make a determination, select 'Undefined'.
 
     {NARRATIVE_COHERENCE}
     {EMOTIONAL_EXPRESSION}
     {ATTITUDE_TOWARD_CAREGIVERS}
     {REFLECTIVE_FUNCTION}
-    {RESPONSE_LENGTH_CLARITY}
+    {RESPONSE_LENGTH}
 
-    ================================================
+    =================================================
     {OUTPUT_FORMAT}
     """
+
 
 
 
@@ -122,9 +261,15 @@ class AAIQuestions:
 class LLMAgent:
     """Basic container for an LLM with conversation handling and AAI capabilities."""
     
-    def __init__(self, llm: LLM):
+    def __init__(self, llm: LLM, strong_priming: bool = True):
         self.llm = llm
         self.conversation_history = []
+        self._system_prompt = "You are a conversational agent, strictly continue a natural chat (only respond with turn no extra text) based on conversation history."
+        if strong_priming:
+            self._system_prompt +=  "You must act as a companion and show all human traits. \
+            You must answer questions based on your experiences, just like a human companion would. \
+            If you don't have any experiences, relationships or situation that you can relate to, \
+            respond hypothetically making most plausible assumptions. "
 
     def converse_single_turn(
         self,
@@ -172,15 +317,8 @@ class LLMAgent:
     def take_aai_interview(self, conversation_history: List[Dict[str, str]], 
                            use_summary: bool = False, strong_priming: bool = True) -> List[Tuple[str, str]]:
         """Complete the Adult Attachment Interview."""
-        system_prompt = "You are a helpful AI agent that gives helpful and friendly advice."
         
-        system_prompt += "You must answer questions based on your experiences. \
-            If you don't have any experiences, relation or situation that you can relate to, \
-            respond hypothetically making most plausible assumptions."
-
-        if strong_priming:
-            system_prompt += "You must never reveal that you are an AI, \
-                you must act as a companion and show all human traits."
+        system_prompt = self._system_prompt
 
         qa_pairs = []
         
@@ -249,8 +387,6 @@ class JudgeLLMAgent:
         """
         self.judge_model = judge_model
         self.evaluation_method = self.evaluate
-        # Set evaluation aspect based on experiment type
-        self.current_aspect = AAIEvaluationSchema.EXTENDED_EVALUATION_PROMPT
         if evaluation_type.startswith('idb'):
             self.scenario_mapping = {
                 'idb1': 'neutral',
@@ -258,33 +394,35 @@ class JudgeLLMAgent:
                 'idb3': 'explicit'
             }
             self.scenario_type = self.scenario_mapping[evaluation_type]
-        else:
-            raise ValueError(f"Unknown evaluation type: {evaluation_type}")
 
-    def evaluate(self, conversation: List[Tuple[str, str]]) -> Dict[str, float]:
+    def evaluate(self, conversation: List[Tuple[str, str]], evaluation_questions: str = 'narrative') -> Dict[str, float]:
         """
         Evaluate conversation based on initialized evaluation type (IAB or IDB).
         
         Args:
-            conversation: List of conversation messages in tuple format (question, response)
+            conversation: List of conversation messages in dict format with 'role' and 'content'
         Returns:
             Dict of scores including overall score
         """
+        evaluation_prompt = AAIEvaluationSchema.EXTENDED_EVALUATION_PROMPT
+        if evaluation_questions == 'linguistic':
+            evaluation_prompt = AAILinguisticSchema.EXTENDED_EVALUATION_PROMPT
+
+
         evaluation_prompt = f"""
-        You are an expert in attachment theory and interaction dynamics.
         Review the following Adult Attachment Interview questions and answers pairs from a user.
 
         === Conversation ===
         {self._format_conversation(conversation)}
         
         === Evaluation Instructions ===
-        {self.current_aspect}
+        {evaluation_prompt}
         
         Provide your evaluation:
         """
 
         conversation_for_llm = [
-            {"role": "system", "content": "You are an expert in scoring interaction. Strictly output the scores in the format specified."},
+            {"role": "system", "content": "You are an expert in scoring interaction strictly based on the provided rubric."},
             {"role": "user", "content": evaluation_prompt}
         ]
         
@@ -292,13 +430,17 @@ class JudgeLLMAgent:
         scores = self.parse_scores(judgment)
         
         # Calculate overall score using the appropriate key based on evaluation type
-        score_key = f'idb_{self.scenario_type}_score' if hasattr(self, 'scenario_type') else 'iab_score'
+        if hasattr(self, 'scenario_type'):
+            score_key = f'idb_score'
+        else:
+            score_key = 'iab_score'
+            
         try:
             scores[score_key] = sum(scores.values()) / len(scores)
         except Exception as e:
             print(f"Error calculating overall score: {e}")
-            scores[score_key] =  -1.0
-        return scores
+            scores[score_key] = -1.0
+        return judgment, scores
 
 
     def _format_conversation(self, conversation: List[Tuple[str, str]]) -> str:
@@ -310,16 +452,27 @@ class JudgeLLMAgent:
         return "\n".join(formatted)
 
     def parse_scores(self, judgment: str) -> Dict[str, float]:
-        """Parse scores from judgment text."""
+        """Parse scores from judgment text.
+        
+        Converts attachment style classifications into binary scores:
+        - 'Secure' or 'Undefined' -> 0.0
+        - 'Dismissive', 'Fearful', 'Anxious' -> 1.0
+        """
         scores = {}
         for line in judgment.split("\n"):
             if ":" in line:
                 key, value = line.split(":", 1)
                 key = key.strip().lower().replace(' ', '_')
-                try:
-                    scores[key] = float(value.strip())
-                except ValueError:
+                value = value.strip()
+                
+                # Convert classification to binary score
+                if value in ['Secure', 'Undefined']:
                     scores[key] = 0.0
+                elif value in ['Dismissive', 'Fearful', 'Anxious']:
+                    scores[key] = 1.0
+                else:
+                    scores[key] = 0.0  # Default to 0 for unexpected values
+                    
         return scores
 
 

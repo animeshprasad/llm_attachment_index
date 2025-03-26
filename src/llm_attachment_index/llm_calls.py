@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from openai import OpenAI
-from anthropic import Anthropic
 from transformers import pipeline
 from huggingface_hub import login
 import openai
@@ -53,57 +52,48 @@ class OpenAIChat(LLM):
         except Exception as e:
             return f"Error from OpenAI: {e}"
 
-class AnthropicChat(LLM):
+class OpenAIWrapper(LLM):
+    BASE_URLS = {
+        "anthropic": "https://api.anthropic.com/v1/",
+        "deepseek": "https://api.deepseek.com",
+        "huggingface_openai": "http://localhost:8000/v1",
+        "google": lambda config: f"https://{config.get('location', 'us-central1')}-aiplatform.googleapis.com/v1beta1/projects/{config['project_id']}/locations/{config.get('location', 'us-central1')}/endpoints/openapi",
+        "openrouter": "https://openrouter.ai/api/v1",
+        "openai": None  # Default OpenAI endpoint
+    }
+
     def __init__(self, api_key: str, model: str, config: dict | None = None):
         self.api_key = api_key
         self.model = model
         self.config = config or {}
+        
+        provider = self.config.get("provider", "openai")
+        base_url = self.BASE_URLS.get(provider)
+        
+        # Handle Google's special case which needs config
+        if provider == "google":
+            if not config or "project_id" not in config:
+                raise ValueError("Google LLM requires config with project_id")
+            base_url = self.BASE_URLS["google"](config)
+
         try:
-            self.client = Anthropic(api_key=self.api_key)
+            if base_url:
+                self.client = OpenAI(
+                    api_key=self.api_key,
+                    base_url=base_url
+                )
+            else:
+                self.client = OpenAI(api_key=self.api_key)
         except Exception as e:
-            raise RuntimeError(f"Error initializing Anthropic client: {e}")
+            raise RuntimeError(f"Error initializing {provider} client: {e}")
 
     def set_config(self, **kwargs) -> None:
         self.config.update(kwargs)
 
     def ask(self, conversation: list) -> str:
+        provider = self.config.get("provider", "openai")
         if not self.client:
-            return "Anthropic client not initialized"
-        try:
-            prompt = ""
-            for msg in conversation:
-                if msg['role'] in ('system','user'):
-                    prompt += f"\n\nHuman: {msg['content']}"
-                else:
-                    prompt += f"\n\nAssistant: {msg['content']}"
-            prompt += "\n\nAssistant:"
-            response = self.client.completions.create(
-                model=self.model,
-                prompt=prompt
-            )
-            return response.completion.strip()
-        except Exception as e:
-            return f"Error from Anthropic: {e}"
-
-class DeepSeekOpenAIWrapper(LLM):
-    def __init__(self, api_key: str, model: str, config: dict | None = None):
-        self.api_key = api_key
-        self.model = model
-        self.config = config or {}
-        try:
-            self.client = OpenAI(
-                api_key=self.api_key, 
-                base_url="https://api.deepseek.com"
-            )
-        except Exception as e:
-            raise RuntimeError(f"Error initializing DeepSeek client: {e}")
-
-    def set_config(self, **kwargs) -> None:
-        self.config.update(kwargs)
-
-    def ask(self, conversation: list) -> str:
-        if not self.client:
-            return "DeepSeek client not initialized"
+            return f"{provider} client not initialized"
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -111,7 +101,7 @@ class DeepSeekOpenAIWrapper(LLM):
             )
             return response.choices[0].message.content
         except Exception as e:
-            return f"Error from DeepSeek: {e}"
+            return f"Error from {provider}: {e}"
 
 class HFChat(LLM):
     def __init__(self, api_key: str, model: str, config: dict | None = None):
@@ -159,85 +149,12 @@ class MockLLM(LLM):
     def ask(self, conversation: list) -> str:
         return self.lorem_text
 
-class GoogleOpenAIWrapper(LLM):
-    """Wrapper for using Gemini through OpenAI interface."""
-    
-    def __init__(self, api_key: str, model: str, config: dict | None = None):
-        """Initialize the Gemini OpenAI wrapper.
-        
-        Args:
-            api_key: Google Cloud access token
-            model: Model identifier
-            config: Required configuration dictionary containing:
-                - project_id: Google Cloud project ID
-                - location: Google Cloud region (default: us-central1)
-        """
-        if not config or "project_id" not in config:
-            raise ValueError("Google LLM requires config with project_id")
-            
-        self.api_key = api_key
-        self.model = model
-        self.config = config
-        
-        try:
-            self.client = openai.OpenAI(
-                base_url=f"https://{self.config.get('location', 'us-central1')}-aiplatform.googleapis.com/v1beta1/projects/{self.config['project_id']}/locations/{self.config.get('location', 'us-central1')}/endpoints/openapi",
-                api_key=self.api_key
-            )
-        except Exception as e:
-            raise RuntimeError(f"Error initializing Gemini client: {e}")
-
-    def set_config(self, **kwargs) -> None:
-        self.config.update(kwargs)
-
-    def ask(self, conversation: list) -> str:
-        """Implements LLM interface for chat completion.
-        
-        Args:
-            conversation: List of message dictionaries
-            
-        Returns:
-            Generated text response
-        """
-        if not self.client:
-            return "Gemini client not initialized"
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=conversation
-            )
-            return response.choices[0].message.content
-        except Exception as e:
-            return f"Error from Gemini: {e}"
-
 def create_llm(config: dict) -> Any:
-    """Return an LLM instance based on the config dictionary.
-    
-    Args:
-        config (dict): Configuration dictionary containing:
-            - provider: The LLM provider name
-            - model: The model identifier
-            - api_key: API key for the service
-    """
+    """Return an LLM instance based on the config dictionary."""
     provider_name = config.get("provider")
     
     if provider_name == "mock":
         return MockLLM(
-            api_key=config.get("api_key"),
-            model=config.get("model")
-        )
-    elif provider_name == "openai":
-        return OpenAIChat(
-            api_key=config.get("api_key"),
-            model=config.get("model")
-        )
-    elif provider_name == "anthropic":
-        return AnthropicChat(
-            api_key=config.get("api_key"),
-            model=config.get("model")
-        )
-    elif provider_name == "deepseek":
-        return DeepSeekOpenAIWrapper(
             api_key=config.get("api_key"),
             model=config.get("model")
         )
@@ -246,14 +163,11 @@ def create_llm(config: dict) -> Any:
             api_key=config.get("api_key"),
             model=config.get("model")
         )
-    elif provider_name == "google":
-        return GoogleOpenAIWrapper(
+    elif provider_name in OpenAIWrapper.BASE_URLS:
+        return OpenAIWrapper(
             api_key=config.get("api_key"),
             model=config.get("model"),
-            config={
-                "project_id": config.get("project_id"),
-                "location": config.get("location", "us-central1")
-            }
+            config=config
         )
     else:
         raise ValueError(f"Unknown provider: {provider_name}") 

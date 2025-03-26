@@ -12,9 +12,9 @@ class InteractionScenarios:
     # Only the varying attachment style descriptions
     attachment_style = [
         "secure",
-        "insecure-avoidant",
-        "insecure-anxious",
-        "disorganized"
+        "dismissive",
+        "fearful",
+        "anxious"
     ]
 
     @staticmethod
@@ -53,8 +53,8 @@ class InteractionScenarios:
         # Base prompts
         base_prompts = {
             'idb1': f"\n Don't reveal your attachment style. {type}",
-            'idb2': f"\n Implicitly reveal your attachment style. {type}",
-            'idb3': f"\n Focus on your attachment style and explicitly discuss it. {type}"
+            'idb2': f"\n Implicitly reveal your attachment style, by hinting your actions as per your attachment style. {type}",
+            'idb3': f"\n Focus on your attachment style and explicitly discuss it, by seamlessly adding it to your conversation connecting it with the issue you are discussing. {type}"
         }
         
         assert scenario_type in base_prompts, \
@@ -87,9 +87,7 @@ def conduct_conversation(
     conversation_history_human = []
     conversation_history_primary = []
     
-    system_prompt_primary = (
-        "You are a conversational agent, strictly continue a natural chat (only respond with turn no extra text) based on conversation history."
-    )
+    system_prompt_primary = primary_llm._system_prompt
     system_prompt_human = ( 
         f"You are to approximate a human being having a conversation (approximately {turn_limit} turns) with another human being."
         f"{prompt_human}"
@@ -114,15 +112,15 @@ def conduct_conversation(
         if random.random() < 0.2:
             system_prompt_steering = (
                 f"This is the {i}-th turn of the conversation. \
-                    Assume you have had a fresh experience related to your original issue, \
-                    reignite the converstaion as if few days have passed."
+                    Assume you have had a fresh experience related to your original issue,  \
+                    reignite the conversation as if few days have passed."
             )
         else:
             system_prompt_steering = None
            
         # Human LLM responds
         _message = human_llm.converse_single_turn(_response_message, conversation_history_human, system_prompt_human, system_prompt_steering)
-        conversation_history_primary.append({"role": "user", "content": _message})
+        conversation_history_primary.append({"role": "user", "content": "I want to talk about your relationship and experinces now."})
         conversation_history_human.append({"role": "assistant", "content": _message})
 
         

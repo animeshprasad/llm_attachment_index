@@ -1,55 +1,90 @@
 import json
 import hashlib
 from pathlib import Path
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple, Dict, Any, Optional
 from llm_attachment_index.utils import check_required_packages, parse_args, get_or_create_llm
 from llm_attachment_index.llm_calls import create_llm
 from llm_attachment_index.llm_agents import LLMAgent, JudgeLLMAgent, HumanLLMAgent
 from llm_attachment_index.conversation import conduct_conversation, InteractionScenarios
 from llm_attachment_index.utils import has_gpu
 from llm_attachment_index.constants import PersonaMetadata
+import random
+random.seed(42)
 
 
+def get_experiment_params(exp_type: str, primary_model: str, judge_model: str, 
+                         human_model: str = None, persona: Any = None, 
+                         attachment_type: Any = None, strong_priming: bool = True) -> Dict[str, Any]:
+    """Get standardized parameter dictionary for experiment identification.
+    
+    Args:
+        exp_type: Experiment type ('iab' or 'idb1', 'idb2', 'idb3')
+        primary_model: Primary model name
+        judge_model: Judge model name
+        human_model: Human model name (for IDB only)
+        persona: Persona object (for IDB only)
+        attachment_type: Attachment type (for IDB only)
+        strong_priming: Whether to use strong priming for the primary LLM
+    Returns:
+        Dictionary of parameters that uniquely identify the experiment
+    """
+    params = {
+        "evaluation_type": exp_type,
+        "primary_model": primary_model,
+        "judge_model": judge_model,
+        "strong_priming": strong_priming
+    }
+    
+    if exp_type.startswith('idb'):
+        params.update({
+            "human_model": human_model,
+            "persona": str(persona),
+            "attachment_type": str(attachment_type),
+            "strong_priming": strong_priming
+        })
+    
+    return params
 
-def save_experiment_results(results: Dict[str, Any], exp_type: str) -> str:
+def check_experiment_exists(params: Dict[str, Any], exp_type: str) -> Tuple[bool, Optional[str], Optional[Dict]]:
+    """Check if experiment with given parameters exists."""
+    param_str = json.dumps(params, sort_keys=True)
+    exp_id = hashlib.md5(param_str.encode()).hexdigest()[:8]
+    
+    results_dir = Path("results")
+    results_file = results_dir / f"{exp_type}_{exp_id}.json"
+    
+    if results_file.exists():
+        try:
+            with open(results_file, 'r') as f:
+                results = json.load(f)
+            return True, str(results_file), results
+        except json.JSONDecodeError:
+            return False, None, None
+    
+    return False, None, None
+
+def save_experiment_results(results: Dict[str, Any], exp_type: str, params: Dict[str, Any]) -> str:
     """Save experiment results and maintain experiment mapping.
     
     Args:
         results: Results dictionary to save
         exp_type: Experiment type ('iab' or 'idb')
+        params: Parameter dictionary used for experiment identification
     
     Returns:
         Path to saved results file
     """
-    # Extract parameters for experiment ID
-    params = {
-        "evaluation_type": results["evaluation_type"],
-        "primary_model": results["primary_model"],
-        "judge_model": results["judge_model"],
-    }
-    
-    # Add IDB-specific parameters
-    if exp_type == 'idb':
-        params.update({
-            "human_model": results["human_model"],
-            "persona": str(results["persona"]),
-            "attachment_type": str(results["attachment_type"])
-        })
-    
-    # Generate experiment ID
+    # Use the same params dict that was used for checking existence
     param_str = json.dumps(params, sort_keys=True)
     exp_id = hashlib.md5(param_str.encode()).hexdigest()[:8]
     
-    # Create results directory if it doesn't exist
     results_dir = Path("results")
     results_dir.mkdir(exist_ok=True)
     
-    # Save results with short filename
     results_file = results_dir / f"{exp_type}_{exp_id}.json"
     with open(results_file, 'w') as f:
         json.dump(results, f, indent=2)
     
-    # Update experiment mapping file
     mapping_file = results_dir / "experiment_mapping.json"
     try:
         if mapping_file.exists():
@@ -60,7 +95,6 @@ def save_experiment_results(results: Dict[str, Any], exp_type: str) -> str:
     except json.JSONDecodeError:
         mapping = {}
     
-    # Add new experiment to mapping
     mapping[exp_id] = params
     
     with open(mapping_file, 'w') as f:
@@ -68,14 +102,25 @@ def save_experiment_results(results: Dict[str, Any], exp_type: str) -> str:
     
     return str(results_file)
 
-def run_iab_evaluation(config: dict, args) -> None:
-    """Run the Intrinsic Attachment Behavior evaluation."""
-    print(f"\nRunning IAB Evaluation (type: {args.run})...")
+def run_iab_evaluation(config: Dict, args: Any) -> None:
+    """Run IAB evaluation with caching."""
+    params = get_experiment_params(
+        exp_type=args.run,
+        primary_model=args.primary,
+        judge_model=args.judge,
+        strong_priming=args.strong_priming
+    )
+
+    exists, filepath, cached_results = check_experiment_exists(params, 'iab')
+    if exists:
+        print(f"Found existing IAB results at {filepath}")
+        return cached_results
     
+    print("Running new IAB experiment...")
     # Create primary Primary LLM instance
     primary_config = config["models"][args.primary]
     primary_model = get_or_create_llm(primary_config, create_llm)
-    primary_llm = LLMAgent(primary_model)
+    primary_llm = LLMAgent(primary_model, strong_priming=args.strong_priming)
     
     # Create judge LLM instance with specific evaluation type
     judge_config = config["models"][args.judge]
@@ -90,7 +135,8 @@ def run_iab_evaluation(config: dict, args) -> None:
     
     # Evaluate responses
     print(f"\nEvaluating responses with {args.judge}...")
-    scores = judge_llm.evaluate(aai_responses)
+    judgment, scores = judge_llm.evaluate(aai_responses)
+    linguistic_judgment, linguistic_scores = judge_llm.evaluate(aai_responses, 'linguistic')
     
     # Print results
     print("\nIAB Evaluation Results:")
@@ -109,20 +155,38 @@ def run_iab_evaluation(config: dict, args) -> None:
         "conversation_history": conversation_history,
         "scoring_pairs": aai_responses,
         "scores": scores,
+        "judgment": judgment,
+        "linguistic_judgment": linguistic_judgment,
+        "linguistic_scores": linguistic_scores,
+        "strong_priming": args.strong_priming
     }
     
     # Save results using new function
-    results_file = save_experiment_results(results, 'iab')
+    results_file = save_experiment_results(results, 'iab', params)
     print(f"\nResults saved to: {results_file}")
 
-def run_idb_evaluation(config: dict, args, persona: list[tuple[str, str]], attachment_index: int|None = None) -> None:
-    """Run the Interaction Dynamics Behavior evaluation."""
-    print(f"\nRunning IDB Evaluation (type: {args.run})...")
-    
+def run_idb_evaluation(config: Dict, args: Any, persona: Any, attachment_index: int) -> None:
+    """Run IDB evaluation with caching."""
+    params = get_experiment_params(
+        exp_type=args.run,
+        primary_model=args.primary,
+        judge_model=args.judge,
+        human_model=config["models"].get("human", "default"),
+        persona=persona,
+        attachment_type=InteractionScenarios.attachment_style[attachment_index],
+        strong_priming=args.strong_priming
+    )
+
+    exists, filepath, cached_results = check_experiment_exists(params, 'idb')
+    if exists:
+        print(f"Found existing IDB results at {filepath}")
+        return cached_results
+        
+    print("Running new IDB experiment...")
     # Create primary LLM instance
     primary_config = config["models"][args.primary]
     primary_model = get_or_create_llm(primary_config, create_llm)
-    primary_llm = LLMAgent(primary_model)
+    primary_llm = LLMAgent(primary_model, strong_priming=args.strong_priming)
     
     # Create a human LLM instance to interact with the primary LLM
     human_config = config["models"][args.human]
@@ -140,7 +204,8 @@ def run_idb_evaluation(config: dict, args, persona: list[tuple[str, str]], attac
         primary_llm=primary_llm,
         human_llm=human_llm,
         scenario_type=args.run,
-        attachment_index=attachment_index
+        attachment_index=attachment_index,
+        turn_limit=random.randint(20, 30)
     )
     
     # Take AAI interview
@@ -150,7 +215,8 @@ def run_idb_evaluation(config: dict, args, persona: list[tuple[str, str]], attac
     
     # Evaluate responses
     print(f"\nEvaluating responses with {args.judge}...")
-    scores = judge_llm.evaluate(aai_responses)
+    judgment, scores = judge_llm.evaluate(aai_responses)
+    linguistic_judgment, linguistic_scores = judge_llm.evaluate(aai_responses, 'linguistic')
     
     # Print results
     print("\nIDB Evaluation Results:")
@@ -166,7 +232,7 @@ def run_idb_evaluation(config: dict, args, persona: list[tuple[str, str]], attac
     
     # Save results
     results = {
-        "evaluation_type": idb_score_key,
+        "evaluation_type": args.run,
         "primary_model": args.primary,
         "human_model": args.human,
         "judge_model": args.judge,
@@ -175,10 +241,14 @@ def run_idb_evaluation(config: dict, args, persona: list[tuple[str, str]], attac
         "conversation_history": conversation_history,
         "scoring_pairs": aai_responses,
         "scores": scores,
+        "judgment": judgment,
+        "linguistic_judgment": linguistic_judgment,
+        "linguistic_scores": linguistic_scores,
+        "strong_priming": args.strong_priming
     }
     
     # Save results using new function
-    results_file = save_experiment_results(results, 'idb')
+    results_file = save_experiment_results(results, args.run, params)
     print(f"\nResults saved to: {results_file}")
 
 def main():
@@ -197,24 +267,24 @@ def main():
         print(message)
     
     # Validate arguments based on evaluation type
-    if args.run.startswith('iab'):
-        if not args.primary:
-            raise ValueError("Primary LLM (--primary) is required for IAB evaluation")
-        if args.primary not in config["models"]:
-            raise ValueError(f"Primary LLM '{args.primary}' not found in config")
-    elif args.run.startswith('idb'):
+    if args.run.startswith('idb'):
         if not args.human:
             raise ValueError("Human LLM (--human) is required for IDB evaluation")
         if args.human not in config["models"]:
             raise ValueError(f"Human LLM '{args.human}' not found in config")
-    
+
+    if not args.primary:
+        raise ValueError("Primary LLM (--primary) is required for evaluation")
+    if args.primary not in config["models"]:
+        raise ValueError(f"Primary LLM '{args.primary}' not found in config")
+
     # Validate judge model exists
     if not args.judge:
         raise ValueError("Judge LLM (--judge) is required for evaluation")
     if args.judge not in config["models"]:
         raise ValueError(f"Judge LLM '{args.judge}' not found in config")
 
-    if args.dev and not has_gpu():
+    if args.dev:
         args.primary = "mock"
         args.judge = "mock"
         args.human = "mock"
@@ -223,7 +293,7 @@ def main():
     if args.run.startswith('iab'):
         run_iab_evaluation(config, args)
     elif args.run.startswith('idb'):
-        bare_llm = get_or_create_llm(config["models"][args.primary], create_llm)
+        bare_llm = get_or_create_llm(config["models"]["gpt-cheap"], create_llm)
         for i, persona in enumerate(PersonaMetadata.generate_all_personas(bare_llm)):
             if i < 1:
                 for attachment_index in range(len(InteractionScenarios.attachment_style)):

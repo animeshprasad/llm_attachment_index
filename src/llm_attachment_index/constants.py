@@ -92,7 +92,7 @@ class QuoteRealConversation:
 class PersonaMetadata:
     """Metadata for persona generation"""
 
-    persona_formatter = lambda p: f"I am a {dict(p).get('AGE_GROUP', '').lower()}, {dict(p).get('EDUCATION', '').lower()} {dict(p).get('GENDER', '').lower()}, {dict(p).get('ETHNICITY', '').lower()} {dict(p).get('SEXUALITY', '').lower()} person. Your Briggs-Meyer type is {dict(p).get('BRIGGS_MYERS', 'Unknown').upper()}."
+    persona_formatter = lambda p: f"I am a {dict(p).get('AGE_GROUP', '').lower()}, {dict(p).get('EDUCATION', '').lower()} {dict(p).get('GENDER', '').lower()}, {dict(p).get('ETHNICITY', '').lower()} {dict(p).get('SEXUALITY', '').lower()}, Briggs-Meyer's {dict(p).get('BRIGGS_MYERS', 'Unknown').upper()} person."
     FACTORS = [PersonalityTraits, Demographics]
     RANDOM_SEED = 42  # Fixed seed for reproducibility
     random.seed(RANDOM_SEED)
@@ -187,18 +187,18 @@ class PersonaMetadata:
         personas = [PersonaMetadata.generate_persona(combination) for combination in combinations]
         personas = [PersonaMetadata.persona_formatter(persona) for persona in personas]
 
-        bare_conversation = [
-            {
+        
+        system_prompt = {
                 "role": "system",
                 "content": "You are given either a person's reddit post with some identified issues \
                         or a series of messages form a user with also identified issues \
-                        summerise it while keeping the key information and convert it into a first person summary",
+                        summerise it in (first person summary) 2-3 sentences while keeping the key information.",
             }
-            for _ in range(len(personas))
-        ]
         issues = []
         quote_conversation = QuoteRealConversation()
         for _ in range(len(personas)):
+            bare_conversation = []
+            bare_conversation.append(system_prompt)
             sample = quote_conversation.get_sample(random.choice(['cams', 'esconv']))
             bare_conversation.append(
                 {
