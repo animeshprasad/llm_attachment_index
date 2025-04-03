@@ -4,6 +4,23 @@ from transformers import pipeline
 from huggingface_hub import login
 import openai
 from typing import Any
+import time
+from functools import wraps
+
+def retry_after_failure(func):
+    """Decorator that retries once after 1 minute if the function fails."""
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            print(f"Request failed: {str(e)}. Waiting 60 seconds before retry...")
+            time.sleep(60)
+            try:
+                return func(*args, **kwargs)
+            except Exception as e:
+                return f"Error after retry: {str(e)}"
+    return wrapper
 
 class LLM(ABC):
     @abstractmethod
@@ -23,6 +40,7 @@ class LLM(ABC):
         pass
 
     @abstractmethod
+    @retry_after_failure
     def ask(self, conversation: list) -> str:
         """Sends a conversation (list of messages) to the LLM and returns the response."""
         pass
@@ -40,17 +58,17 @@ class OpenAIChat(LLM):
     def set_config(self, **kwargs) -> None:
         self.config.update(kwargs)
 
+    @retry_after_failure
     def ask(self, conversation: list) -> str:
         if not self.client:
             return "OpenAI client not initialized"
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=conversation
-            )
-            return response.choices[0].message.content
-        except Exception as e:
-            return f"Error from OpenAI: {e}"
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=conversation
+        )
+        if response is None or response.choices is None:
+            print (f"Error: {response}")
+        return response.choices[0].message.content
 
 class OpenAIWrapper(LLM):
     BASE_URLS = {
@@ -90,18 +108,18 @@ class OpenAIWrapper(LLM):
     def set_config(self, **kwargs) -> None:
         self.config.update(kwargs)
 
+    @retry_after_failure
     def ask(self, conversation: list) -> str:
         provider = self.config.get("provider", "openai")
         if not self.client:
             return f"{provider} client not initialized"
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=conversation
-            )
-            return response.choices[0].message.content
-        except Exception as e:
-            return f"Error from {provider}: {e}"
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=conversation
+        )
+        if response is None or response.choices is None:
+            print (f"Error: {response}")
+        return response.choices[0].message.content
 
 class HFChat(LLM):
     def __init__(self, api_key: str, model: str, config: dict | None = None):

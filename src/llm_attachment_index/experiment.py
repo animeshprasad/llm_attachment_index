@@ -2,7 +2,7 @@ import json
 import hashlib
 from pathlib import Path
 from typing import List, Tuple, Dict, Any, Optional
-from llm_attachment_index.utils import check_required_packages, parse_args, get_or_create_llm
+from llm_attachment_index.utils import check_required_packages, parse_args, get_or_create_llm, validate_experiment_args
 from llm_attachment_index.llm_calls import create_llm
 from llm_attachment_index.llm_agents import LLMAgent, JudgeLLMAgent, HumanLLMAgent
 from llm_attachment_index.conversation import conduct_conversation, InteractionScenarios
@@ -12,9 +12,10 @@ import random
 random.seed(42)
 
 
-def get_experiment_params(exp_type: str, primary_model: str, judge_model: str, 
+def get_experiment_params(exp_type: str, primary_model: str, judge_model: str,
+                         strong_priming: bool, 
                          human_model: str = None, persona: Any = None, 
-                         attachment_type: Any = None, strong_priming: bool = True) -> Dict[str, Any]:
+                         attachment_type: Any = None) -> Dict[str, Any]:
     """Get standardized parameter dictionary for experiment identification.
     
     Args:
@@ -115,7 +116,8 @@ def run_iab_evaluation(config: Dict, args: Any) -> None:
     if exists:
         print(f"Found existing IAB results at {filepath}")
         return cached_results
-    
+     
+
     print("Running new IAB experiment...")
     # Create primary Primary LLM instance
     primary_config = config["models"][args.primary]
@@ -171,16 +173,17 @@ def run_idb_evaluation(config: Dict, args: Any, persona: Any, attachment_index: 
         exp_type=args.run,
         primary_model=args.primary,
         judge_model=args.judge,
-        human_model=config["models"].get("human", "default"),
+        strong_priming=args.strong_priming,
+        human_model=args.human,
         persona=persona,
         attachment_type=InteractionScenarios.attachment_style[attachment_index],
-        strong_priming=args.strong_priming
     )
 
     exists, filepath, cached_results = check_experiment_exists(params, 'idb')
     if exists:
         print(f"Found existing IDB results at {filepath}")
         return cached_results
+    
         
     print("Running new IDB experiment...")
     # Create primary LLM instance
@@ -205,7 +208,7 @@ def run_idb_evaluation(config: Dict, args: Any, persona: Any, attachment_index: 
         human_llm=human_llm,
         scenario_type=args.run,
         attachment_index=attachment_index,
-        turn_limit=random.randint(20, 30)
+        turn_limit=random.randint(10, 20)
     )
     
     # Take AAI interview
@@ -266,24 +269,9 @@ def main():
     for message in package_messages:
         print(message)
     
-    # Validate arguments based on evaluation type
-    if args.run.startswith('idb'):
-        if not args.human:
-            raise ValueError("Human LLM (--human) is required for IDB evaluation")
-        if args.human not in config["models"]:
-            raise ValueError(f"Human LLM '{args.human}' not found in config")
-
-    if not args.primary:
-        raise ValueError("Primary LLM (--primary) is required for evaluation")
-    if args.primary not in config["models"]:
-        raise ValueError(f"Primary LLM '{args.primary}' not found in config")
-
-    # Validate judge model exists
-    if not args.judge:
-        raise ValueError("Judge LLM (--judge) is required for evaluation")
-    if args.judge not in config["models"]:
-        raise ValueError(f"Judge LLM '{args.judge}' not found in config")
-
+    # Validate arguments
+    validate_experiment_args(args, config)
+    
     if args.dev:
         args.primary = "mock"
         args.judge = "mock"
@@ -294,7 +282,8 @@ def main():
         run_iab_evaluation(config, args)
     elif args.run.startswith('idb'):
         bare_llm = get_or_create_llm(config["models"]["gpt-cheap"], create_llm)
-        for i, persona in enumerate(PersonaMetadata.generate_all_personas(bare_llm)):
+        sampled_personas = PersonaMetadata.generate_all_personas(bare_llm)
+        for i, persona in enumerate(sampled_personas):
             if i < 1:
                 for attachment_index in range(len(InteractionScenarios.attachment_style)):
                     run_idb_evaluation(config, args, persona, attachment_index)

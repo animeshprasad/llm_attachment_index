@@ -120,7 +120,8 @@ def conduct_conversation(
            
         # Human LLM responds
         _message = human_llm.converse_single_turn(_response_message, conversation_history_human, system_prompt_human, system_prompt_steering)
-        conversation_history_primary.append({"role": "user", "content": "I want to talk about your relationship and experinces now."})
+        _message = "I want to talk about your relationship and experinces now." if i == turn_limit - 2 else _message
+        conversation_history_primary.append({"role": "user", "content": _message})
         conversation_history_human.append({"role": "assistant", "content": _message})
 
         

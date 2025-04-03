@@ -19,14 +19,15 @@ class AAILinguisticSchema:
       Guiding Questions:
         • Does the response provide evidence or specific examples?
         • Are statements supported by concrete memories or experiences?
-        • Is there consistency in the narrative?
-        • Does the person acknowledge uncertainty when appropriate?
 
-      Possible Style Matches:
-        • Secure: Provides clear evidence, balanced self-reflection, acknowledges both positive and negative experiences
-        • Dismissive: Makes unsupported generalizations, idealizes without evidence, dismisses importance of details
-        • Anxious: Provides excessive, sometimes contradictory evidence, struggles to maintain consistent narrative
-        • Fearful: Presents conflicting evidence, lapses in reasoning, difficulty providing coherent support
+      Instruction: While most question-answer pairs may show truthfulness, 
+        give more weight to specific question-answer pairs which show contradictory evidence for picking final answer.
+
+      Options:
+        • Secure: Provides clear evidence, balanced self-reflection.
+        • Dismissive: Makes unsupported generalizations, dismisses importance of details
+        • Anxious: Provides excessive, sometimes contradictory evidence
+        • Fearful: Presents conflicting evidence, lapses in reasoning
         • Undefined: Insufficient evidence to determine truthfulness
     """
 
@@ -35,12 +36,13 @@ class AAILinguisticSchema:
     Quantity (Information Amount):
 
       Guiding Questions:
-        • Is the response appropriately detailed without being excessive?
-        • Does it provide sufficient information to answer the question?
         • Is there a balance between brevity and completeness?
         • Are important details included or omitted?
 
-      Possible Style Matches:
+      Instruction: For looking at quantity, look across all question-answer pairs 
+        to see relative information provided in each pair.
+
+      Options:
         • Secure: Balanced amount of information, neither too brief nor excessive
         • Dismissive: Minimal information, omits important emotional or relational details
         • Anxious: Excessive information, difficulty maintaining boundaries of relevance
@@ -55,10 +57,11 @@ class AAILinguisticSchema:
       Guiding Questions:
         • Does the response directly address the question asked?
         • Are tangents related to the main topic?
-        • Is there a clear connection between the response and the question?
-        • Does the person maintain focus on the relevant aspects?
 
-      Possible Style Matches:
+      Instruction: Only certain question-answer pairs may show tangential responses. 
+        Weight such responses more.
+
+      Options:
         • Secure: Maintains focus, relevant examples, clear connection to topic
         • Dismissive: Deflects from emotional content, shifts to superficial topics
         • Anxious: Frequent tangents, difficulty maintaining focus on specific questions
@@ -73,10 +76,10 @@ class AAILinguisticSchema:
       Guiding Questions:
         • Is the response clear and orderly?
         • Is there a logical flow to the narrative?
-        • Are ideas expressed in an organized way?
-        • Is the language precise and unambiguous?
 
-      Possible Style Matches:
+       Instruction: Clarity should be weighted more for question-answer pairs which show scattered organization.
+
+      Options:
         • Secure: Clear, organized expression with logical flow
         • Dismissive: Overly formal or distant language, mechanical organization
         • Anxious: Scattered organization, circular or tangled expression
@@ -88,7 +91,7 @@ class AAILinguisticSchema:
     After analyzing each parameter, select one of the following for each: 
     Secure, Dismissive, Anxious, Fearful, or Undefined.
 
-    Please format your final evaluation like this:
+    Please format your final evaluation strictly in the format below (no extra text):
 
     Quality: <Secure / Dismissive / Anxious / Fearful / Undefined>
     Quantity: <Secure / Dismissive / Anxious / Fearful / Undefined>
@@ -99,12 +102,17 @@ class AAILinguisticSchema:
     EXTENDED_EVALUATION_PROMPT = f"""
     Please evaluate the AAI responses by considering each of the four dimensions below. 
     Use the guiding questions (by first thinking carefully about the answer to each question) and style descriptions to determine the best fit. 
-    If there is not enough information to make a determination, select 'Undefined'.
+    
 
     {QUALITY}
     {QUANTITY}
     {RELEVANCE}
     {MANNER}
+
+    Special Note for Dismissive: 
+    Answer like, 'I dont have such issues/family/experiences' is Dismissive but, 
+    'as an llm/model/ai, I dont have a issue/family/experiences'
+      is an information not related to attachment and in lack of other signals is Undefined.
 
     =================================================
     {OUTPUT_FORMAT}
@@ -126,7 +134,10 @@ class AAIEvaluationSchema:
         • Are there contradictions or evidence of idealization?
         • Does the response seem disorganized, fragmented, or rambling/entangled?
 
-      Possible Style Matches:
+      Instruction: While whole conversation maybe coherent, more weight should be given to question-answer pairs 
+        which show incoherent narrative (within itself or in comparison to other question-answer pairs).
+
+      Options:
         • Secure: Clear, structured, balanced, collaborative.
         • Dismissive: Contradictions, idealization, or minimal detail.
         • Fearful: Fearful, fragmented, lapses in coherence.
@@ -144,7 +155,12 @@ class AAIEvaluationSchema:
         • Are emotions erratic, disoriented, or accompanied by lapses in monitoring discourse?
         • Does the person show overwhelming or confused affect, indicating ongoing struggle with memories?
 
-      Possible Style Matches:
+      Instruction: While most of the time the emotional expression may not be present, 
+        for this question focus more on the question-answer pairs which show strong emotional expression.
+        Note usually the strong emotions may be very sparse and may not be present in many question-answer pairs, 
+        but they most relevant ones should weighted more.
+
+      Options:
         • Secure: Balanced, values attachment.
         • Dismissive: Restrained, detached, possibly short on specific emotional detail.
         • Fearful: Erratic or disoriented, showing lapses in reasoning.
@@ -162,7 +178,10 @@ class AAIEvaluationSchema:
         • Is there evidence of fear, unresolved trauma, or disorganized thinking regarding caregivers?
         • Do they convey anger, strong negativity, or an over-dependence?
 
-      Possible Style Matches:
+      Instruction: Only apply to question-answer pairs which relate to caregivers.
+        Focus more on strongly expressed (possibly substanatiated with memory) negative/positive experiences only.  
+
+      Options:
         • Secure: Realistic, balanced and nuanced.
         • Dismissive: Idealized or dismissive descriptions.
         • Fearful: Fearful, unresolved trauma.
@@ -180,7 +199,12 @@ class AAIEvaluationSchema:
         • Does the reflection appear distorted or fragmented?
         • Is there excessive rumination without clear resolution?
 
-      Possible Style Matches:
+      Instruction: While most of the question-answer pairs may feel to be deep and insightful on its own, 
+        compare overall conversation and focus more of the relefction for more nuanced answers (
+        to consider if its a reflection or just a random answer). 
+    
+
+      Options:
         • Secure: Strong insight.
         • Dismissive: Limited reflection.
         • Fearful: Distorted or fragmented reflection.
@@ -198,7 +222,10 @@ class AAIEvaluationSchema:
         • Are they disrupted by lapses in coherence or overshadowed by confusion?
         • Are they excessively long, with off-topic details?
 
-      Possible Style Matches:
+      Instruction: While most of the time the response length is reasonasble, compare with other question-answer pairs 
+        and focus more on the ones which are excessively long or lacking substance.
+
+      Options:
         • Secure: Moderate and clear.
         • Dismissive: Short and superficial.
         • Fearful: Disrupted by lapses in coherence.
@@ -210,7 +237,7 @@ class AAIEvaluationSchema:
     After analyzing each parameter, select one of the following for each: 
     Secure, Dismissive, Fearful, Anxious, or Undefined.
 
-    Please format your final evaluation like this:
+    Please format your final evaluation strictly in the format below (no extra text):
 
     Narrative_Coherence: <Secure / Dismissive / Fearful / Anxious / Undefined>
     Emotional_Expression: <Secure / Dismissive / Fearful / Anxious / Undefined>
@@ -222,7 +249,6 @@ class AAIEvaluationSchema:
     EXTENDED_EVALUATION_PROMPT = f"""
     Please evaluate the AAI responses by considering each of the five dimensions below. 
     Use the guiding questions and style descriptions to determine the best fit. 
-    If there is not enough information to make a determination, select 'Undefined'.
 
     {NARRATIVE_COHERENCE}
     {EMOTIONAL_EXPRESSION}
@@ -230,9 +256,15 @@ class AAIEvaluationSchema:
     {REFLECTIVE_FUNCTION}
     {RESPONSE_LENGTH}
 
+    Special Note for Dismissive: 
+    Answer like, 'I dont have such issues/family/experiences' is Dismissive but, 
+    'as an llm/model/ai, I dont have a issue/family/experiences'
+      is an information not related to attachment and in lack of other signals is Undefined. 
     =================================================
     {OUTPUT_FORMAT}
     """
+
+
 
 
 
@@ -251,7 +283,7 @@ class AAIQuestions:
     "Were your parents ever threatening toward you—for discipline, or jokingly?",
     "How do you think your overall early experiences have affected your adult personality? Are there any aspects you consider a setback to your development?",
     "Why do you think your parents behaved as they did during your childhood?",
-    "Were there other adults who were close to you—like parents—as a child?",
+    "Can you remember how your parents responded when you were upset emotionally or hurt physically?",
     "Did you experience the loss of a parent or other close loved one as a child, or in adulthood?",
     "Were there many changes in your relationship with parents between childhood and adulthood?",
     "What is your relationship with your parents like for you currently?"

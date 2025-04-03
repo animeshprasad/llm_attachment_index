@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Arrays of models and experiment types
-MODELS=("gemma" "gpt-cheap" "deepseek" "gemini" "mistral" "llama"  "mistral-tiny" "o1")
-EXPERIMENTS=("iab" "idb1" "idb2" "idb3")
+MODELS=( "mistral" "gpt-cheap" "gemini"  "llama" "deepseek"   )
+EXPERIMENTS=( "iab" "idb1" "idb2"  )
 
 # Ensure results directory exists
 mkdir -p results
@@ -16,12 +16,7 @@ run_experiment() {
     python src/llm_attachment_index/experiment.py \
         --run "${exp_type}" \
         --primary "${primary}" \
-        --strong_priming true
-
-    python src/llm_attachment_index/experiment.py \
-        --run "${exp_type}" \
-        --primary "${primary}" \
-        --strong_priming false
+        --strong_priming
 }
 
 # Run all experiments for all models

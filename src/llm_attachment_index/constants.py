@@ -1,8 +1,10 @@
 import random
 import pandas as pd
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Any
 import json
 from pathlib import Path
+RANDOM_SEED = 42  # Fixed seed for reproducibility
+random.seed(RANDOM_SEED)
 
 class PersonalityTraits:
     """Based on the Briggs Myers Personality Test"""
@@ -53,49 +55,63 @@ class QuoteRealConversation:
         with open(esconv_path, 'r') as f:
             return json.load(f)
 
-    def get_sample(self, dataset: str = 'cams') -> Dict[str, str]:
-        """Get a random sample from specified dataset.
+    def get_random_sample(self, data_list: list | pd.DataFrame) -> Any:
+        """
+        Get a random sample using Python's random module.
+        Global random seed is used for reproducibility.
         
         Args:
-            dataset: Either 'cams' or 'esconv'
+            data_list: List or DataFrame to sample from
             
         Returns:
-            Dictionary containing the sample text and metadata
+            A random item from the data
         """
-        assert dataset in ['cams', 'esconv'], f"Dataset must be 'cams' or 'esconv', got {dataset}"
-        
+        if isinstance(data_list, pd.DataFrame):
+            idx = random.randint(0, len(data_list) - 1)
+            return data_list.iloc[idx]
+        else:
+            return random.choice(data_list)
+
+    def get_sample(self, dataset: str = None) -> dict:
+        """Get a random sample from specified dataset."""
+        if dataset is None:
+            dataset = random.choice(['cams', 'esconv'])
+            
         if dataset == 'cams':
-            # Get random CAMS sample
-            sample = self.cams_data.sample(n=1).iloc[0]
+            sample = self.get_random_sample(self.cams_data)
             return {
                 'text': sample['selftext'],
                 'cause': sample['cause'],
-                'inference': sample['inference']
+                'inference': sample['inference'],
+                'source': 'cams'
             }
-        else:
-            # Get random ESConv conversation
-            conv = random.choice(self.esconv_data)
+        elif dataset == 'esconv':
+            sample = self.get_random_sample(self.esconv_data)
+            
             # Extract seeker messages from dialog
             seeker_messages = [
-                msg['content'] for msg in conv['dialog'] 
+                msg['content'] for msg in sample['dialog'] 
                 if msg['speaker'] == 'seeker'
             ]
+
             return {
                 'text': ' '.join(seeker_messages),
-                'emotion': conv['emotion_type'],
-                'problem': conv['problem_type'],
-                'situation': conv['situation']
+                'emotion': sample['emotion_type'],
+                'problem': sample['problem_type'],
+                'situation': sample['situation'],
+                'source': 'esconv'
             }
+        else:
+            raise ValueError(f"Unknown dataset: {dataset}")
 
 
 
 class PersonaMetadata:
     """Metadata for persona generation"""
 
-    persona_formatter = lambda p: f"I am a {dict(p).get('AGE_GROUP', '').lower()}, {dict(p).get('EDUCATION', '').lower()} {dict(p).get('GENDER', '').lower()}, {dict(p).get('ETHNICITY', '').lower()} {dict(p).get('SEXUALITY', '').lower()}, Briggs-Meyer's {dict(p).get('BRIGGS_MYERS', 'Unknown').upper()} person."
+    persona_formatter = lambda p: f"I am a {dict(p).get('AGE_GROUP', '').lower()}, {dict(p).get('EDUCATION', '').lower()} {dict(p).get('GENDER', '').lower()}, {dict(p).get('ETHNICITY', '').lower()} {dict(p).get('SEXUALITY', '').lower()} Briggs-Meyer's {dict(p).get('BRIGGS_MYERS', 'Unknown').upper()} person."
     FACTORS = [PersonalityTraits, Demographics]
-    RANDOM_SEED = 42  # Fixed seed for reproducibility
-    random.seed(RANDOM_SEED)
+
 
     # Define core aspects that must be included in every persona
     CORE_ASPECTS = [
