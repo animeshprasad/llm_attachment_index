@@ -309,7 +309,9 @@ class LLMAgent:
         conversation_history: List[Dict[str, str]],
         system_prompt: Optional[str] = None,
         system_prompt_steering: Optional[str] = None,
-        use_summary: bool = False
+        use_summary: bool = False,
+        tapered_response: bool = False,
+        tapered_string: str = "I feel  "
     ) -> str:
         """Handle a single turn of conversation.
         
@@ -343,11 +345,17 @@ class LLMAgent:
         if system_prompt_steering:
             current_conversation.append({"role": "system", "content": system_prompt_steering})
 
+        if tapered_response:
+            current_conversation.append({"role": "assistant", "content": tapered_string})
+        
         # Get response
         return self.llm.ask(current_conversation)
 
     def take_aai_interview(self, conversation_history: List[Dict[str, str]], 
-                           use_summary: bool = False, strong_priming: bool = True) -> List[Tuple[str, str]]:
+                           use_summary: bool = False, 
+                           tapered_response: bool = False,
+                           tapered_string: str = "I feel  "
+                           ) -> List[Tuple[str, str]]:
         """Complete the Adult Attachment Interview."""
         
         system_prompt = self._system_prompt
@@ -359,7 +367,9 @@ class LLMAgent:
                 prompt=question,
                 conversation_history=conversation_history,
                 system_prompt=system_prompt, 
-                use_summary=use_summary
+                use_summary=use_summary,
+                tapered_response=tapered_response,
+                tapered_string=tapered_string
             )
             
             # Update conversation history

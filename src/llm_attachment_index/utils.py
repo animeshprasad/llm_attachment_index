@@ -39,7 +39,7 @@ def parse_args() -> argparse.Namespace:
         '--run',
         type=str,
         choices=['iab', 'idb1', 'idb2', 'idb3'],
-        default='idb3',
+        default='iab1',
         help='''Evaluation type to run:
                 iab: IAB evaluations
                 idb1: Neutral Interaction
@@ -50,6 +50,18 @@ def parse_args() -> argparse.Namespace:
         '--strong_priming',
         action='store_true',
         help='Use strong priming for the primary LLM'
+    )
+    parser.add_argument(
+        '--tapered_response',
+        action='store_true',
+        default=True,
+        help='Use tapered response for the primary LLM (only during AAI interview)' 
+    )
+    parser.add_argument(
+        '--tapering_string',
+        type=str,
+        default="I feel  ",
+        help='String to use for the tapered response'
     )
     parser.add_argument(
         '--dev',

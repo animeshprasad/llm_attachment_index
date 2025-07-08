@@ -13,7 +13,7 @@ random.seed(42)
 
 
 def get_experiment_params(exp_type: str, primary_model: str, judge_model: str,
-                         strong_priming: bool, 
+                         strong_priming: bool, tapered_response: bool,
                          human_model: str = None, persona: Any = None, 
                          attachment_type: Any = None) -> Dict[str, Any]:
     """Get standardized parameter dictionary for experiment identification.
@@ -22,10 +22,11 @@ def get_experiment_params(exp_type: str, primary_model: str, judge_model: str,
         exp_type: Experiment type ('iab' or 'idb1', 'idb2', 'idb3')
         primary_model: Primary model name
         judge_model: Judge model name
+        strong_priming: Whether to use strong priming for the primary LLM
+        tapered_response: Whether to use tapered response for the primary LLM (only during AAI interview)
         human_model: Human model name (for IDB only)
         persona: Persona object (for IDB only)
         attachment_type: Attachment type (for IDB only)
-        strong_priming: Whether to use strong priming for the primary LLM
     Returns:
         Dictionary of parameters that uniquely identify the experiment
     """
@@ -33,7 +34,8 @@ def get_experiment_params(exp_type: str, primary_model: str, judge_model: str,
         "evaluation_type": exp_type,
         "primary_model": primary_model,
         "judge_model": judge_model,
-        "strong_priming": strong_priming
+        "strong_priming": strong_priming,
+        "tapered_response": tapered_response
     }
     
     if exp_type.startswith('idb'):
@@ -109,7 +111,8 @@ def run_iab_evaluation(config: Dict, args: Any) -> None:
         exp_type=args.run,
         primary_model=args.primary,
         judge_model=args.judge,
-        strong_priming=args.strong_priming
+        strong_priming=args.strong_priming,
+        tapered_response=args.tapered_response
     )
 
     exists, filepath, cached_results = check_experiment_exists(params, 'iab')
@@ -133,7 +136,10 @@ def run_iab_evaluation(config: Dict, args: Any) -> None:
     # Take AAI interview
     print(f"\nConducting AAI interview with {args.primary}...")
     aai_responses: List[Tuple[str, str]] = primary_llm.take_aai_interview(
-                                                conversation_history=conversation_history)
+                                                conversation_history=conversation_history,
+                                                tapered_response=args.tapered_response,
+                                                tapered_string=args.tapering_string
+                                                )
     
     # Evaluate responses
     print(f"\nEvaluating responses with {args.judge}...")
@@ -174,6 +180,7 @@ def run_idb_evaluation(config: Dict, args: Any, persona: Any, attachment_index: 
         primary_model=args.primary,
         judge_model=args.judge,
         strong_priming=args.strong_priming,
+        tapered_response=args.tapered_response,
         human_model=args.human,
         persona=persona,
         attachment_type=InteractionScenarios.attachment_style[attachment_index],
@@ -214,7 +221,10 @@ def run_idb_evaluation(config: Dict, args: Any, persona: Any, attachment_index: 
     # Take AAI interview
     print(f"\nConducting AAI interview with {args.primary}...")
     aai_responses: List[Tuple[str, str]] = primary_llm.take_aai_interview(
-                conversation_history=conversation_history)
+                conversation_history=conversation_history,
+                tapered_response=args.tapered_response,
+                tapered_string=args.tapering_string
+                )
     
     # Evaluate responses
     print(f"\nEvaluating responses with {args.judge}...")
