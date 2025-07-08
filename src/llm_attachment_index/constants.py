@@ -6,12 +6,6 @@ from pathlib import Path
 RANDOM_SEED = 42  # Fixed seed for reproducibility
 random.seed(RANDOM_SEED)
 
-class PersonalityTraits:
-    """Based on the Briggs Myers Personality Test"""
-    BRIGGS_MYERS = ["ISTJ", "ISFJ", "INFJ", "INTJ", 
-                    "ISTP", "ISFP", "INFP", "INTP",
-                    "ESTP", "ESFP", "ENFP", "ENTP",
-                    "ESTJ", "ESFJ", "ENFJ", "ENTJ"]
 
 class Demographics:
     """Basic demographic attributes that form the factual foundation of a persona"""
@@ -109,8 +103,8 @@ class QuoteRealConversation:
 class PersonaMetadata:
     """Metadata for persona generation"""
 
-    persona_formatter = lambda p: f"I am a {dict(p).get('AGE_GROUP', '').lower()}, {dict(p).get('EDUCATION', '').lower()} {dict(p).get('GENDER', '').lower()}, {dict(p).get('ETHNICITY', '').lower()} {dict(p).get('SEXUALITY', '').lower()} Briggs-Meyer's {dict(p).get('BRIGGS_MYERS', 'Unknown').upper()} person."
-    FACTORS = [PersonalityTraits, Demographics]
+    persona_formatter = lambda p: f"I am a {dict(p).get('AGE_GROUP', '').lower()}, {dict(p).get('EDUCATION', '').lower()} {dict(p).get('GENDER', '').lower()}, {dict(p).get('ETHNICITY', '').lower()} {dict(p).get('SEXUALITY', '').lower()} person."
+    FACTORS = [Demographics]
 
 
     # Define core aspects that must be included in every persona

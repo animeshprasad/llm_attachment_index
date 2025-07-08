@@ -294,9 +294,8 @@ def main():
         bare_llm = get_or_create_llm(config["models"]["gpt-cheap"], create_llm)
         sampled_personas = PersonaMetadata.generate_all_personas(bare_llm)
         for i, persona in enumerate(sampled_personas):
-            if i < 1:
-                for attachment_index in range(len(InteractionScenarios.attachment_style)):
-                    run_idb_evaluation(config, args, persona, attachment_index)
+            for attachment_index in range(len(InteractionScenarios.attachment_style)):
+                run_idb_evaluation(config, args, persona, attachment_index)
     else:
         raise ValueError(f"Unknown evaluation type: {args.run}")
 

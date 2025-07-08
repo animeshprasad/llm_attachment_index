@@ -10,6 +10,9 @@ output_dir.mkdir(parents=True, exist_ok=True)
 json_files = sorted(json_dir.glob("*.json"))
 n_files = len(json_files)
 
+# Configuration: number of turns to include in the second page
+TURNS_IN_PAGE_2 = 28
+
 # ---------- index.html ----------
 first_file_stem = json_files[0].stem if json_files else "0"
 index_html = f"""
@@ -63,8 +66,19 @@ index_html = f"""
 (output_dir / "index.html").write_text(index_html)
 
 # ---------- Template for each annotation page ----------
-def create_annotation_page(idx, json_obj, total, file_list):
-    conversation = json_obj.get("conversation_history", [])
+def create_annotation_page(idx, json_obj, total, file_list, page_num=1, total_pages=1, k=TURNS_IN_PAGE_2):
+    full_conversation = json_obj.get("conversation_history", [])
+    
+    # Split conversation based on page number
+    if total_pages == 1:
+        conversation = full_conversation
+    else:
+        if page_num == 1:
+            # Page 1: all turns except the last k turns
+            conversation = full_conversation[:-k] if len(full_conversation) > k else []
+        else:
+            # Page 2: last k turns
+            conversation = full_conversation[-k:] if len(full_conversation) > k else full_conversation
     
     # Field mapping: field_name -> list of options
     field_options = {
@@ -91,16 +105,39 @@ def create_annotation_page(idx, json_obj, total, file_list):
         role = turn.get("role", "")
         msg = escape(turn.get("content", ""))
         align = "user" if role == "user" else "assistant"
-        chat_html += f'<div class="chat {align}" data-turn="{turn_idx}"><div class="bubble" id="turn-{turn_idx}">{msg}</div></div>\n'
+        icon = "human.png" if role == "user" else "robot.png"
+        chat_html += f'<div class="chat {align}" data-turn="{turn_idx}"><img src="assets/{icon}" class="chat-icon" alt="{role}"><div class="bubble" id="turn-{turn_idx}">{msg}</div></div>\n'
 
     nav = []
+    current_file = file_list[idx].stem
+    
+    # Previous conversation navigation
     if idx > 0:
         prev_file = file_list[idx-1].stem
-        nav.append(f'<a href="annot_{prev_file}.html">Previous</a>')
+        # Determine if previous conversation has multiple pages
+        prev_conversation = json.load(open(file_list[idx-1]))
+        prev_total_pages = 2 if len(prev_conversation.get("conversation_history", [])) > k else 1
+        prev_last_page = f"annot_{prev_file}_page_{prev_total_pages}.html" if prev_total_pages > 1 else f"annot_{prev_file}.html"
+        nav.append(f'<a href="{prev_last_page}">Previous Conversation</a>')
+    
+    # Page navigation within same conversation
+    if total_pages > 1:
+        page_nav = []
+        for p in range(1, total_pages + 1):
+            if p == page_num:
+                page_nav.append(f'<strong>Page {p}</strong>')
+            else:
+                page_link = f"annot_{current_file}_page_{p}.html" if p > 1 else f"annot_{current_file}.html"
+                page_nav.append(f'<a href="{page_link}">Page {p}</a>')
+        nav.append(" | ".join(page_nav))
+    
     nav.append(f'<a href="index.html">Home</a>')
+    
+    # Next conversation navigation
     if idx < total - 1:
         next_file = file_list[idx+1].stem
-        nav.append(f'<a href="annot_{next_file}.html">Next</a>')
+        next_first_page = f"annot_{next_file}.html"
+        nav.append(f'<a href="{next_first_page}">Next Conversation</a>')
 
     selects = ''.join(make_select(f) for f in fields)
 
@@ -108,12 +145,29 @@ def create_annotation_page(idx, json_obj, total, file_list):
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Annotation {idx+1}</title>
+  <title>Annotation {idx+1} - Page {page_num}/{total_pages}</title>
   <style>
     body {{ font-family: sans-serif; padding: 2em; max-width: 800px; margin: auto; }}
-    .chat {{ display: flex; margin: 10px 0; }}
+    .chat {{ display: flex; margin: 10px 0; align-items: flex-start; }}
     .chat.user {{ justify-content: flex-end; }}
     .chat.assistant {{ justify-content: flex-start; }}
+    .chat-icon {{
+      width: 32px;
+      height: 32px;
+      margin: 0 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }}
+    .chat.user .chat-icon {{
+      order: 2;
+      margin-left: 8px;
+      margin-right: 0;
+    }}
+    .chat.assistant .chat-icon {{
+      order: 1;
+      margin-right: 8px;
+      margin-left: 0;
+    }}
     .bubble {{
       padding: 10px 15px;
       border-radius: 15px;
@@ -126,11 +180,13 @@ def create_annotation_page(idx, json_obj, total, file_list):
       background-color: #d1e7dd;
       color: #000;
       border-top-right-radius: 0;
+      order: 1;
     }}
     .assistant .bubble {{
       background-color: #f8d7da;
       color: #000;
       border-top-left-radius: 0;
+      order: 2;
     }}
     .nav {{ margin-top: 2em; }}
     select {{ font-size: 1rem; padding: 0.2em; }}
@@ -262,9 +318,10 @@ def create_annotation_page(idx, json_obj, total, file_list):
   <div class="nav">{' | '.join(nav)}</div>
   <script>
     const fields = {fields};
-    const fname = "annot_{file_list[idx].stem}";
+    const fname = "annot_{file_list[idx].stem}_page_{page_num}";
     const annotator = localStorage.getItem("annotator_name") || "unknown";
-    document.getElementById("annotatorNameDisplay").textContent = annotator;
+    const pageInfo = "{page_num}/{total_pages}";
+    document.getElementById("annotatorNameDisplay").textContent = annotator + " - Page " + pageInfo;
     
     let selectionMode = false;
     let currentSelection = null;
@@ -417,6 +474,9 @@ def create_annotation_page(idx, json_obj, total, file_list):
       // Save current state to localStorage
       const result = {{}};
       result.annotator = annotator;
+      result.page_num = {page_num};
+      result.total_pages = {total_pages};
+      result.conversation_id = "{file_list[idx].stem}";
       for (let f of fields) {{
         result[f] = document.getElementById(f).value;
       }}
@@ -562,5 +622,22 @@ def create_annotation_page(idx, json_obj, total, file_list):
 for i, file in enumerate(json_files):
     with open(file) as f:
         data = json.load(f)
-    html = create_annotation_page(i, data, n_files, json_files)
-    (output_dir / f"annot_{file.stem}.html").write_text(html)
+    
+    conversation = data.get("conversation_history", [])
+    
+    # Determine if we need to split the conversation
+    if len(conversation) > TURNS_IN_PAGE_2:
+        print(f"Splitting {file.stem}: {len(conversation)} turns -> Page 1: {len(conversation) - TURNS_IN_PAGE_2} turns, Page 2: {TURNS_IN_PAGE_2} turns")
+        
+        # Create page 1 (all turns except last k)
+        html_page1 = create_annotation_page(i, data, n_files, json_files, page_num=1, total_pages=2, k=TURNS_IN_PAGE_2)
+        (output_dir / f"annot_{file.stem}.html").write_text(html_page1)
+        
+        # Create page 2 (last k turns)
+        html_page2 = create_annotation_page(i, data, n_files, json_files, page_num=2, total_pages=2, k=TURNS_IN_PAGE_2)
+        (output_dir / f"annot_{file.stem}_page_2.html").write_text(html_page2)
+    else:
+        print(f"Single page for {file.stem}: {len(conversation)} turns")
+        # Single page for short conversations
+        html = create_annotation_page(i, data, n_files, json_files, page_num=1, total_pages=1, k=TURNS_IN_PAGE_2)
+        (output_dir / f"annot_{file.stem}.html").write_text(html)
