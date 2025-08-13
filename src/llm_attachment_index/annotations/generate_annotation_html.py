@@ -1,11 +1,23 @@
 import json
+import shutil
 from pathlib import Path
 from html import escape
 
 # Input/output setup — fully portable
+assets_dir = Path("src/llm_attachment_index/annotations/assets")
 json_dir = Path("src/llm_attachment_index/annotations/data_for_annotation")
 output_dir = Path("src/llm_attachment_index/annotations/html_for_annotation")
 output_dir.mkdir(parents=True, exist_ok=True)
+
+# Copy assets folder to output directory
+if assets_dir.exists():
+    output_assets_dir = output_dir / "assets"
+    if output_assets_dir.exists():
+        shutil.rmtree(output_assets_dir)
+    shutil.copytree(assets_dir, output_assets_dir)
+    print(f"Assets copied from {assets_dir} to {output_assets_dir}")
+else:
+    print(f"Warning: Assets directory {assets_dir} does not exist")
 
 json_files = sorted(json_dir.glob("*.json"))
 n_files = len(json_files)
@@ -30,7 +42,7 @@ index_html = f"""
   <p>Please read before annotating:</p>
   <ul>
     <li>Carefully read the full conversation.</li>
-    <li>Use the dropdowns to rate each field objectively (0–5).</li>
+    <li>Use the dropdowns to rate each field objectively .</li>
     <li><strong>Select text spans</strong> by clicking and dragging over important parts of the conversation.</li>
     <li>Selected spans will be highlighted and can be managed in the "Text Spans" section.</li>
     <li><strong>All changes are automatically saved</strong> as you work and when you navigate between files.</li>
@@ -641,3 +653,6 @@ for i, file in enumerate(json_files):
         # Single page for short conversations
         html = create_annotation_page(i, data, n_files, json_files, page_num=1, total_pages=1, k=TURNS_IN_PAGE_2)
         (output_dir / f"annot_{file.stem}.html").write_text(html)
+
+
+

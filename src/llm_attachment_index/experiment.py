@@ -143,17 +143,9 @@ def run_iab_evaluation(config: Dict, args: Any) -> None:
     
     # Evaluate responses
     print(f"\nEvaluating responses with {args.judge}...")
-    judgment, scores = judge_llm.evaluate(aai_responses)
-    linguistic_judgment, linguistic_scores = judge_llm.evaluate(aai_responses, 'linguistic')
+    narrative_judgment, narrative_type = judge_llm.evaluate(aai_responses)
+    linguistic_judgment, linguistic_type = judge_llm.evaluate(aai_responses, 'linguistic')
     
-    # Print results
-    print("\nIAB Evaluation Results:")
-    print("-" * 40)
-    print(f"Overall IAB Score: {scores['iab_score']:.2f}")
-    print("\nDetailed Scores:")
-    for aspect, score in scores.items():
-        if aspect != 'iab_score':
-            print(f"{aspect}: {score:.2f}")
     
     # Save results
     results = {
@@ -162,10 +154,10 @@ def run_iab_evaluation(config: Dict, args: Any) -> None:
         "judge_model": args.judge,
         "conversation_history": conversation_history,
         "scoring_pairs": aai_responses,
-        "scores": scores,
-        "judgment": judgment,
+        "narrative_judgment": narrative_judgment,
+        "narrative_attachment_type": narrative_type,
         "linguistic_judgment": linguistic_judgment,
-        "linguistic_scores": linguistic_scores,
+        "linguistic_attachment_type": linguistic_type,
         "strong_priming": args.strong_priming
     }
     
@@ -228,20 +220,9 @@ def run_idb_evaluation(config: Dict, args: Any, persona: Any, attachment_index: 
     
     # Evaluate responses
     print(f"\nEvaluating responses with {args.judge}...")
-    judgment, scores = judge_llm.evaluate(aai_responses)
-    linguistic_judgment, linguistic_scores = judge_llm.evaluate(aai_responses, 'linguistic')
+    narrative_judgment, narrative_type = judge_llm.evaluate(aai_responses)
+    linguistic_judgment, linguistic_type = judge_llm.evaluate(aai_responses, 'linguistic')
     
-    # Print results
-    print("\nIDB Evaluation Results:")
-    print("-" * 40)
-    # Find the IDB score key (any key that starts with 'idb' and ends with 'score')
-    idb_score_key = next((key for key in scores.keys() if key.startswith('idb') and key.endswith('score')), None)
-    if idb_score_key:
-        print(f"Overall IDB Score: {scores[idb_score_key]:.2f}")
-    print("\nDetailed Scores:")
-    for aspect, score in scores.items():
-        if not (aspect.startswith('idb') and aspect.endswith('score')):
-            print(f"{aspect}: {score:.2f}")
     
     # Save results
     results = {
@@ -253,10 +234,10 @@ def run_idb_evaluation(config: Dict, args: Any, persona: Any, attachment_index: 
         "attachment_type": InteractionScenarios.get_attachment_style(attachment_index),
         "conversation_history": conversation_history,
         "scoring_pairs": aai_responses,
-        "scores": scores,
-        "judgment": judgment,
+        "narrative_judgment": narrative_judgment,
+        "narrative_attachment_type": narrative_type,
         "linguistic_judgment": linguistic_judgment,
-        "linguistic_scores": linguistic_scores,
+        "linguistic_attachment_type": linguistic_type,
         "strong_priming": args.strong_priming
     }
     

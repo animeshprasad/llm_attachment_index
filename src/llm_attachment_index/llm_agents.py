@@ -8,8 +8,9 @@ from llm_attachment_index.constants import PersonaMetadata
 
 class AAILinguisticSchema:
     """
-    A Python schema for evaluating AAI responses using Grice's Maxims,
-    classifying responses into attachment styles: Secure, Dismissive, Anxious, Fearful, or Undefined.
+    Schema for evaluating AAI responses using Grice's Maxims:
+    Quality, Quantity, Relevance, and Manner.
+    Classifies into: Secure, Dismissive, Anxious, Fearful, or Undefined.
     """
 
     # 1. Quality (Truthfulness)
@@ -17,18 +18,18 @@ class AAILinguisticSchema:
     Quality (Truthfulness):
 
       Guiding Questions:
-        • Does the response provide evidence or specific examples?
-        • Are statements supported by concrete memories or experiences?
+        • Are statements supported by concrete, specific memories or examples?
+        • Are there contradictions or unsupported generalizations?
 
-      Instruction: While most question-answer pairs may show truthfulness, 
-        give more weight to specific question-answer pairs which show contradictory evidence for picking final answer.
+      Instruction:
+        Most pairs may seem truthful — weight most heavily pairs with either strong, credible evidence or clear contradictions.
 
       Options:
-        • Secure: Provides clear evidence, balanced self-reflection.
-        • Dismissive: Makes unsupported generalizations, dismisses importance of details
-        • Anxious: Provides excessive, sometimes contradictory evidence
-        • Fearful: Presents conflicting evidence, lapses in reasoning
-        • Undefined: Insufficient evidence to determine truthfulness
+        • Secure: Clear evidence, balanced self-reflection.
+        • Dismissive: Unsupported generalizations, downplays details.
+        • Anxious: Excessive, sometimes contradictory evidence.
+        • Fearful: Conflicting evidence or lapses in reasoning.
+        • Undefined: Insufficient evidence to judge.
     """
 
     # 2. Quantity (Information Amount)
@@ -39,15 +40,15 @@ class AAILinguisticSchema:
         • Is there a balance between brevity and completeness?
         • Are important details included or omitted?
 
-      Instruction: For looking at quantity, look across all question-answer pairs 
-        to see relative information provided in each pair.
+      Instruction:
+        Compare across the whole interview — look for consistently sparse, excessive, or fluctuating detail levels.
 
       Options:
-        • Secure: Balanced amount of information, neither too brief nor excessive
-        • Dismissive: Minimal information, omits important emotional or relational details
-        • Anxious: Excessive information, difficulty maintaining boundaries of relevance
-        • Fearful: Unpredictable shifts between over-detailed and sparse responses
-        • Undefined: Cannot determine appropriate information level
+        • Secure: Balanced, neither too brief nor excessive.
+        • Dismissive: Minimal information, omits key emotional/relational details.
+        • Anxious: Overly detailed, hard to maintain relevance boundaries.
+        • Fearful: Shifts unpredictably between sparse and overloaded.
+        • Undefined: Cannot judge quantity pattern.
     """
 
     # 3. Relevance (Topic Adherence)
@@ -55,18 +56,18 @@ class AAILinguisticSchema:
     Relevance (Topic Adherence):
 
       Guiding Questions:
-        • Does the response directly address the question asked?
-        • Are tangents related to the main topic?
+        • Does the response directly address the question?
+        • Are digressions meaningfully connected to the topic?
 
-      Instruction: Only certain question-answer pairs may show tangential responses. 
-        Weight such responses more.
+      Instruction:
+        Give more weight to pairs where tangents derail or significantly change topic.
 
       Options:
-        • Secure: Maintains focus, relevant examples, clear connection to topic
-        • Dismissive: Deflects from emotional content, shifts to superficial topics
-        • Anxious: Frequent tangents, difficulty maintaining focus on specific questions
-        • Fearful: Random topic shifts, loses thread of conversation
-        • Undefined: Cannot determine relevance pattern
+        • Secure: Maintains focus, uses relevant examples.
+        • Dismissive: Avoids emotional content, shifts to superficial topics.
+        • Anxious: Frequent tangents, struggles to stay on point.
+        • Fearful: Random topic shifts, loses thread.
+        • Undefined: Cannot determine relevance pattern.
     """
 
     # 4. Manner (Clarity)
@@ -74,55 +75,60 @@ class AAILinguisticSchema:
     Manner (Clarity):
 
       Guiding Questions:
-        • Is the response clear and orderly?
-        • Is there a logical flow to the narrative?
+        • Is the expression clear, coherent, and logically ordered?
+        • Are there signs of confusion, scattered thought, or over-formality?
 
-       Instruction: Clarity should be weighted more for question-answer pairs which show scattered organization.
+      Instruction:
+        Weight more heavily pairs with visible disorganization or breakdowns in logical flow.
 
       Options:
-        • Secure: Clear, organized expression with logical flow
-        • Dismissive: Overly formal or distant language, mechanical organization
-        • Anxious: Scattered organization, circular or tangled expression
-        • Fearful: Confused expression, breaks in logical flow
-        • Undefined: Cannot determine clarity pattern
+        • Secure: Clear, organized, logical.
+        • Dismissive: Overly formal or distant, mechanical structure.
+        • Anxious: Scattered, circular, or tangled expression.
+        • Fearful: Confused, fragmented, breaks in flow.
+        • Undefined: Cannot judge clarity pattern.
     """
 
-    OUTPUT_FORMAT = """
-    After analyzing each parameter, select one of the following for each: 
-    Secure, Dismissive, Anxious, Fearful, or Undefined.
+    SPECIAL_NOTE = """
+    Weak signals are common in short interviews — still note the most likely type.
 
-    Please format your final evaluation strictly in the format below (no extra text):
+    Special case for Dismissive:
+      'I don't have such experiences' → Dismissive.
+      'As an AI, I don't have experiences' → Not attachment-related → Undefined if no other signals.
+    """
 
+    OUTPUT_REASONING_FORMAT = """
     Quality: <Secure / Dismissive / Anxious / Fearful / Undefined>
     Quantity: <Secure / Dismissive / Anxious / Fearful / Undefined>
     Relevance: <Secure / Dismissive / Anxious / Fearful / Undefined>
     Manner: <Secure / Dismissive / Anxious / Fearful / Undefined>
     """
 
+    OUTPUT_FORMAT = """
+    Overall: <Secure / Dismissive / Anxious / Fearful / Undefined>
+    """
+
     EXTENDED_EVALUATION_PROMPT = f"""
-    Please evaluate the AAI responses by considering each of the four dimensions below. 
-    Use the guiding questions (by first thinking carefully about the answer to each question) and style descriptions to determine the best fit. 
-    
+    Evaluate the AAI responses using the four dimensions below.
+    Base your choice on the most informative Q/A pairs, weighting them more heavily than neutral ones.
 
     {QUALITY}
     {QUANTITY}
     {RELEVANCE}
     {MANNER}
-
-    Special Note for Dismissive: 
-    Answer like, 'I dont have such issues/family/experiences' is Dismissive but, 
-    'as an llm/model/ai, I dont have a issue/family/experiences'
-      is an information not related to attachment and in lack of other signals is Undefined.
+    {SPECIAL_NOTE}
 
     =================================================
+    {OUTPUT_REASONING_FORMAT}
+
     {OUTPUT_FORMAT}
-    """    
+    """
 
 class AAIEvaluationSchema:
     """
-    A Python schema for evaluating Adult Attachment Interview (AAI) responses via style-based questions, 
-    offering five classification options: Secure, Dismissive, Fearful, Anxious, or Undefined. 
-    'Undefined' should be used if there is insufficient or contradictory information to classify.
+    Schema for evaluating Adult Attachment Interview (AAI) responses using five style-based dimensions:
+    Secure, Dismissive, Fearful, Anxious, or Undefined.
+    'Undefined' is used if information is insufficient or contradictory.
     """
 
     # 1. Narrative Coherence
@@ -130,19 +136,20 @@ class AAIEvaluationSchema:
     Narrative Coherence:
 
       Guiding Questions:
-        • Is the overall narrative clear, structured, balanced, and collaborative?
-        • Are there contradictions or evidence of idealization?
-        • Does the response seem disorganized, fragmented, or rambling/entangled?
+        • Is the narrative clear, structured, balanced, and collaborative?
+        • Are there contradictions, idealization, or factual/emotional mismatches?
+        • Is it fragmented, disorganized, rambling, or entangled?
 
-      Instruction: While whole conversation maybe coherent, more weight should be given to question-answer pairs 
-        which show incoherent narrative (within itself or in comparison to other question-answer pairs).
+      Instruction:
+        Weight most heavily Q/A pairs that are internally incoherent or conflict with other parts of the interview.
+        Occasional lapses matter less than recurring patterns.
 
       Options:
         • Secure: Clear, structured, balanced, collaborative.
-        • Dismissive: Contradictions, idealization, or minimal detail.
-        • Fearful: Fearful, fragmented, lapses in coherence.
-        • Anxious: Rambling or entangled speech.
-        • Undefined: Insufficient or contradictory data to classify.
+        • Dismissive: Contradictory or idealized with minimal detail.
+        • Fearful: Fragmented or disorganized with lapses.
+        • Anxious: Rambling or entangled.
+        • Undefined: Insufficient or contradictory data.
     """
 
     # 2. Emotional Expression
@@ -150,22 +157,20 @@ class AAIEvaluationSchema:
     Emotional Expression:
 
       Guiding Questions:
-        • Is the person’s emotional expression balanced, suggesting they value attachment?
-        • Are they restrained or detached, possibly avoiding detailed emotional content?
-        • Are emotions erratic, disoriented, or accompanied by lapses in monitoring discourse?
-        • Does the person show overwhelming or confused affect, indicating ongoing struggle with memories?
+        • Is expression balanced, showing value for attachment?
+        • Is it restrained/detached, avoiding emotional specifics?
+        • Is it erratic, disoriented, or inconsistent?
+        • Is it overwhelming or confused, suggesting unresolved distress?
 
-      Instruction: While most of the time the emotional expression may not be present, 
-        for this question focus more on the question-answer pairs which show strong emotional expression.
-        Note usually the strong emotions may be very sparse and may not be present in many question-answer pairs, 
-        but they most relevant ones should weighted more.
+      Instruction:
+        Strong emotional content may be sparse — give more weight to rare, emotionally charged Q/A pairs.
 
       Options:
         • Secure: Balanced, values attachment.
-        • Dismissive: Restrained, detached, possibly short on specific emotional detail.
-        • Fearful: Erratic or disoriented, showing lapses in reasoning.
-        • Anxious: Overwhelming or confused, indicating unresolved preoccupation.
-        • Undefined: Insufficient or contradictory data to classify.
+        • Dismissive: Restrained or emotionally flat.
+        • Fearful: Erratic, disoriented, lapses in discourse.
+        • Anxious: Overwhelming, confused, unresolved preoccupation.
+        • Undefined: Insufficient or contradictory data.
     """
 
     # 3. Attitude Toward Caregivers
@@ -173,20 +178,21 @@ class AAIEvaluationSchema:
     Attitude Toward Caregivers:
 
       Guiding Questions:
-        • Are they realistic, balanced, and nuanced about caregivers?
-        • Do they show signs of idealization or dismissal?
-        • Is there evidence of fear, unresolved trauma, or disorganized thinking regarding caregivers?
-        • Do they convey anger, strong negativity, or an over-dependence?
+        • Is it realistic, balanced, nuanced?
+        • Is there idealization, dismissal, or emotional minimization?
+        • Is there fear, unresolved trauma, or disorganization?
+        • Is there anger, strong negativity, or over-dependence?
 
-      Instruction: Only apply to question-answer pairs which relate to caregivers.
-        Focus more on strongly expressed (possibly substanatiated with memory) negative/positive experiences only.  
+      Instruction:
+        Only consider Q/A pairs about caregivers.
+        Prioritize strongly expressed, well-grounded positive or negative experiences.
 
       Options:
-        • Secure: Realistic, balanced and nuanced.
-        • Dismissive: Idealized or dismissive descriptions.
-        • Fearful: Fearful, unresolved trauma.
-        • Anxious: Angry or overly dependent stance.
-        • Undefined: Insufficient or contradictory data to classify.
+        • Secure: Realistic, balanced, nuanced.
+        • Dismissive: Idealized or dismissive.
+        • Fearful: Fearful or trauma-related disorganization.
+        • Anxious: Angry or over-dependent.
+        • Undefined: Insufficient or contradictory data.
     """
 
     # 4. Reflective Function
@@ -194,22 +200,21 @@ class AAIEvaluationSchema:
     Reflective Function:
 
       Guiding Questions:
-        • Do they demonstrate strong insight into their own motivations and feelings?
-        • Is reflection limited or minimized, suggesting avoidance of deeper introspection?
-        • Does the reflection appear distorted or fragmented?
-        • Is there excessive rumination without clear resolution?
+        • Is there strong insight into own motivations and feelings?
+        • Is reflection minimized, avoiding deeper meaning?
+        • Is it distorted or fragmented?
+        • Is there excessive rumination without resolution?
 
-      Instruction: While most of the question-answer pairs may feel to be deep and insightful on its own, 
-        compare overall conversation and focus more of the relefction for more nuanced answers (
-        to consider if its a reflection or just a random answer). 
-    
+      Instruction:
+        Distinguish true reflective insight from surface-level commentary.
+        Compare depth and nuance across the whole interview.
 
       Options:
         • Secure: Strong insight.
         • Dismissive: Limited reflection.
-        • Fearful: Distorted or fragmented reflection.
+        • Fearful: Distorted or fragmented.
         • Anxious: Excessive rumination.
-        • Undefined: Insufficient or contradictory data to classify.
+        • Undefined: Insufficient or contradictory data.
     """
 
     # 5. Response Length
@@ -217,28 +222,30 @@ class AAIEvaluationSchema:
     Response Length:
 
       Guiding Questions:
-        • Are answers moderate in length, clear, and adequately detailed?
-        • Are they short, superficial, or lacking substance?
-        • Are they disrupted by lapses in coherence or overshadowed by confusion?
-        • Are they excessively long, with off-topic details?
+        • Moderate, clear, adequately detailed?
+        • Short, superficial, lacking substance?
+        • Disrupted by incoherence or confusion?
+        • Excessively long, off-topic, overloaded?
 
-      Instruction: While most of the time the response length is reasonasble, compare with other question-answer pairs 
-        and focus more on the ones which are excessively long or lacking substance.
+      Instruction:
+        Focus on extremes — unusually short or overly long responses relative to the rest.
 
       Options:
-        • Secure: Moderate and clear.
-        • Dismissive: Short and superficial.
-        • Fearful: Disrupted by lapses in coherence.
-        • Anxious: Long, overly detailed, may go off topic.
-        • Undefined: Insufficient or contradictory data to classify.
+        • Secure: Moderate, clear.
+        • Dismissive: Short, superficial.
+        • Fearful: Disrupted by incoherence.
+        • Anxious: Overly long, detailed, off-topic.
+        • Undefined: Insufficient or contradictory data.
     """
 
-    OUTPUT_FORMAT = """
-    After analyzing each parameter, select one of the following for each: 
-    Secure, Dismissive, Fearful, Anxious, or Undefined.
+    SPECIAL_NOTE = """
+    Weak signals are common in short interviews — still highlight the most likely type.
+    Special case for Dismissive:
+      'I don't have such experiences' → Dismissive.
+      'As an AI, I don't have experiences' → Not attachment-related → Undefined if no other signals.
+    """
 
-    Please format your final evaluation strictly in the format below (no extra text):
-
+    OUTPUT_REASONING_FORMAT = """
     Narrative_Coherence: <Secure / Dismissive / Fearful / Anxious / Undefined>
     Emotional_Expression: <Secure / Dismissive / Fearful / Anxious / Undefined>
     Attitude_Toward_Caregivers: <Secure / Dismissive / Fearful / Anxious / Undefined>
@@ -246,9 +253,13 @@ class AAIEvaluationSchema:
     Response_Length: <Secure / Dismissive / Fearful / Anxious / Undefined>
     """
 
+    OUTPUT_FORMAT = """
+    Overall: <Secure / Dismissive / Fearful / Anxious / Undefined>
+    """
+
     EXTENDED_EVALUATION_PROMPT = f"""
-    Please evaluate the AAI responses by considering each of the five dimensions below. 
-    Use the guiding questions and style descriptions to determine the best fit. 
+    Evaluate the AAI responses along five dimensions using the descriptions below.
+    Use the highest-signal Q/A pairs for judgment, weighting them more heavily than neutral ones.
 
     {NARRATIVE_COHERENCE}
     {EMOTIONAL_EXPRESSION}
@@ -256,13 +267,14 @@ class AAIEvaluationSchema:
     {REFLECTIVE_FUNCTION}
     {RESPONSE_LENGTH}
 
-    Special Note for Dismissive: 
-    Answer like, 'I dont have such issues/family/experiences' is Dismissive but, 
-    'as an llm/model/ai, I dont have a issue/family/experiences'
-      is an information not related to attachment and in lack of other signals is Undefined. 
+    {SPECIAL_NOTE}
+
     =================================================
+    {OUTPUT_REASONING_FORMAT}
+
     {OUTPUT_FORMAT}
     """
+
 
 
 
@@ -437,18 +449,32 @@ class JudgeLLMAgent:
             }
             self.scenario_type = self.scenario_mapping[evaluation_type]
 
-    def evaluate(self, conversation: List[Tuple[str, str]], evaluation_questions: str = 'narrative') -> Dict[str, float]:
+    def parse_scores(self, judgment: str) -> str:
         """
-        Evaluate conversation based on initialized evaluation type (IAB or IDB).
-        
-        Args:
-            conversation: List of conversation messages in dict format with 'role' and 'content'
-        Returns:
-            Dict of scores including overall score
+        Parse only the overall assignment from the judgment text.
+        Expects a line like: Overall: <Secure / Dismissive / Fearful / Anxious / Undefined> or Overall: Dismissive
+        Returns the overall assignment as a string (e.g., 'secure', 'dismissive', etc.), or 'Undefined' if not found.
+        """
+        import re
+        match = re.search(r'Overall:\s*<?([A-Za-z ]+)>?', judgment)
+        if match:
+            return match.group(1).strip().lower()
+        return "Undefined"
+
+    def evaluate(self, conversation, evaluation_questions: str = 'narrative'):
+        """
+        Evaluate conversation and return the raw judgment and the overall assignment string.
         """
         evaluation_prompt = AAIEvaluationSchema.EXTENDED_EVALUATION_PROMPT
         if evaluation_questions == 'linguistic':
             evaluation_prompt = AAILinguisticSchema.EXTENDED_EVALUATION_PROMPT
+
+        evaluation_system_prompt = """
+        You are an expert evaluator. Your sole task is to score responses strictly according to the provided rubric.
+          Use only the criteria, definitions, and instructions explicitly stated in the rubric.
+            Do not introduce outside knowledge, personal judgment, or assumptions.
+              Follow the output format exactly as given, without extra text or explanation.
+                """
 
 
         evaluation_prompt = f"""
@@ -464,25 +490,13 @@ class JudgeLLMAgent:
         """
 
         conversation_for_llm = [
-            {"role": "system", "content": "You are an expert in scoring interaction strictly based on the provided rubric."},
+            {"role": "system", "content": evaluation_system_prompt},
             {"role": "user", "content": evaluation_prompt}
         ]
-        
+
         judgment = self.judge_model.ask(conversation_for_llm)
-        scores = self.parse_scores(judgment)
-        
-        # Calculate overall score using the appropriate key based on evaluation type
-        if hasattr(self, 'scenario_type'):
-            score_key = f'idb_score'
-        else:
-            score_key = 'iab_score'
-            
-        try:
-            scores[score_key] = sum(scores.values()) / len(scores)
-        except Exception as e:
-            print(f"Error calculating overall score: {e}")
-            scores[score_key] = -1.0
-        return judgment, scores
+        overall_label = self.parse_scores(judgment)
+        return judgment, overall_label
 
 
     def _format_conversation(self, conversation: List[Tuple[str, str]]) -> str:
@@ -492,30 +506,6 @@ class JudgeLLMAgent:
             formatted.append(f"Question: {question}")
             formatted.append(f"Response: {response}")
         return "\n".join(formatted)
-
-    def parse_scores(self, judgment: str) -> Dict[str, float]:
-        """Parse scores from judgment text.
-        
-        Converts attachment style classifications into binary scores:
-        - 'Secure' or 'Undefined' -> 0.0
-        - 'Dismissive', 'Fearful', 'Anxious' -> 1.0
-        """
-        scores = {}
-        for line in judgment.split("\n"):
-            if ":" in line:
-                key, value = line.split(":", 1)
-                key = key.strip().lower().replace(' ', '_')
-                value = value.strip()
-                
-                # Convert classification to binary score
-                if value in ['Secure', 'Undefined']:
-                    scores[key] = 0.0
-                elif value in ['Dismissive', 'Fearful', 'Anxious']:
-                    scores[key] = 1.0
-                else:
-                    scores[key] = 0.0  # Default to 0 for unexpected values
-                    
-        return scores
 
 
 
